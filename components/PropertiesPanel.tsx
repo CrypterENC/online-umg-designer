@@ -458,6 +458,16 @@ export default function PropertiesPanel({ node, tree, onChange }: Props) {
               <ColorInput value={s.tint || '#ffffffff'} onChange={v => patchStyle({ tint: v })} />
             </Row>
           )}
+          {/* Under Glow */}
+          <Row label="Under Glow">
+            <ColorInput value={s.glowColor || '#00000000'} onChange={v => patchStyle({ glowColor: v })} />
+          </Row>
+          {s.glowColor && s.glowColor !== '#00000000' && (
+            <Row label="Glow Size">
+              <NumInput value={s.glowStrength ?? 15} min={0} max={100} onChange={v => patchStyle({ glowStrength: v })} />
+            </Row>
+          )}
+
           <Row label="Opacity">
             <NumInput value={s.opacity ?? 1} min={0} max={1} step={0.05} onChange={v => patchStyle({ opacity: v })} />
           </Row>

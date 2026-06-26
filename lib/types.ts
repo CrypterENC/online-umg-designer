@@ -30,6 +30,8 @@ export type StyleData = {
   pressedColor?: string
   gradient?: GradientData
   animation?: AnimationData
+  glowColor?: string
+  glowStrength?: number
   [key: string]: unknown
 }
 

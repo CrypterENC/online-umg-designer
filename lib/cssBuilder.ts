@@ -117,5 +117,11 @@ export function buildWidgetCss(node: WidgetNode): string {
   if (s.visibility === 'Collapsed') css += `display:none;`
   if (s.tint) css += `background:${hexToRgba(s.tint)};`
 
+  const glowColor = s.glowColor as string | undefined
+  const glowStrength = (s.glowStrength as number) ?? 15
+  if (glowColor && glowColor !== '#00000000') {
+    css += `box-shadow: 0 0 ${glowStrength}px ${Math.max(1, Math.round(glowStrength / 4))}px ${hexToRgba(glowColor)};`
+  }
+
   return css
 }

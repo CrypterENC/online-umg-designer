@@ -932,6 +932,24 @@ export default function DocsPage() {
           >
             Custom Animations
           </Link>
+          <Link 
+            href="/docs/custom-widgets" 
+            style={{ 
+              fontSize: 12, 
+              fontWeight: 500, 
+              color: '#8b949e', 
+              textDecoration: 'none',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 4px',
+              transition: 'color 150ms'
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#e6edf3' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#8b949e' }}
+          >
+            Custom Widgets
+          </Link>
         </nav>
       </header>
 
