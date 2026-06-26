@@ -83,6 +83,7 @@ export type DesignerState = {
 
 export type DesignerAction =
   | { type: 'SET_TREE'; tree: WidgetNode | null }
+  | { type: 'SET_TREE_SILENT'; tree: WidgetNode | null }
   | { type: 'SELECT'; id: string | null }
   | { type: 'SET_CANVAS'; canvas: CanvasSize }
   | { type: 'SET_ZOOM'; zoom: number }

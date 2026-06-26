@@ -181,7 +181,10 @@ export default function Designer() {
         }
 
         setSyncStatus('connected')
-        setMembers(data.members || [])
+        setMembers(prev => {
+          const next = data.members || []
+          return JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+        })
 
         // If the server has a different version, load it
         if (data.version !== lastSyncedVersion.current) {
@@ -232,7 +235,7 @@ export default function Designer() {
               isSyncingFromServer.current = true
               setSyncStatus('syncing')
 
-              if (treeChanged)   dispatch({ type: 'SET_TREE',        tree: data.tree })
+              if (treeChanged)   dispatch({ type: 'SET_TREE_SILENT', tree: data.tree })
               if (canvasChanged) dispatch({ type: 'SET_CANVAS',      canvas: data.canvas })
               if (nameChanged)   dispatch({ type: 'SET_WIDGET_NAME', name: data.widgetName })
 

@@ -24,8 +24,11 @@ export const initialState: DesignerState = {
 export function reducer(state: DesignerState, action: DesignerAction): DesignerState {
   switch (action.type) {
     case 'SET_TREE': {
-      const next = { ...pushHistory(state, action.tree), tree: action.tree }
-      return next
+      return { ...pushHistory(state, action.tree), tree: action.tree }
+    }
+    case 'SET_TREE_SILENT': {
+      // ponytail: sync from server — no undo history entry
+      return { ...state, tree: action.tree }
     }
     case 'SELECT':
       return { ...state, sel: action.id }
