@@ -54,28 +54,30 @@ export default function ThemePicker({ anchorRef, selectedNode, tree, onApplyToWi
         <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#484f58', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 2px' }}>×</button>
       </div>
 
-      {/* Theme grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 12 }}>
-        {THEMES.map(theme => (
-          <button
-            key={theme.id}
-            onClick={() => setSelected(theme)}
-            style={{
-              background: selected.id === theme.id ? 'rgba(232,117,10,0.08)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${selected.id === theme.id ? '#e8750a' : 'rgba(255,255,255,0.07)'}`,
-              borderRadius: 6, padding: '10px 12px', cursor: 'pointer', textAlign: 'left',
-              transition: 'border-color 120ms, background 120ms',
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#e6edf3', marginBottom: 6 }}>{theme.name}</div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-              {theme.preview.map((col, i) => (
-                <div key={i} title={ROLE_LABELS[i]} style={{ width: 16, height: 16, borderRadius: 3, background: col, border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
-              ))}
-            </div>
-            <div style={{ fontSize: 10, color: '#484f58', lineHeight: 1.4 }}>{theme.hint}</div>
-          </button>
-        ))}
+      {/* Scrollable Theme grid container */}
+      <div style={{ maxHeight: 220, overflowY: 'auto', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, padding: 12 }}>
+          {THEMES.map(theme => (
+            <button
+              key={theme.id}
+              onClick={() => setSelected(theme)}
+              style={{
+                background: selected.id === theme.id ? 'rgba(232,117,10,0.08)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${selected.id === theme.id ? '#e8750a' : 'rgba(255,255,255,0.07)'}`,
+                borderRadius: 6, padding: '10px 12px', cursor: 'pointer', textAlign: 'left',
+                transition: 'border-color 120ms, background 120ms',
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#e6edf3', marginBottom: 6 }}>{theme.name}</div>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+                {theme.preview.map((col, i) => (
+                  <div key={i} title={ROLE_LABELS[i]} style={{ width: 16, height: 16, borderRadius: 3, background: col, border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }} />
+                ))}
+              </div>
+              <div style={{ fontSize: 10, color: '#484f58', lineHeight: 1.4 }}>{theme.hint}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Selected theme detail */}

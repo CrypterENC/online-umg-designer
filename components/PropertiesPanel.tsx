@@ -88,16 +88,45 @@ function SelectInput({ value, options, onChange }: { value: string; options: str
 
 function PaddingInput({ value, onChange }: { value: [number,number,number,number] | undefined; onChange: (v: [number,number,number,number]) => void }) {
   const v = value || [0, 0, 0, 0]
+  const [locked, setLocked] = useState(() => v[0] === v[1] && v[1] === v[2] && v[2] === v[3])
+
+  const handleValChange = (index: number, val: number) => {
+    if (locked) {
+      onChange([val, val, val, val])
+    } else {
+      const nv = [...v] as [number,number,number,number]
+      nv[index] = val
+      onChange(nv)
+    }
+  }
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4 }}>
-      {(['T','R','B','L'] as const).map((lbl, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <span style={{ fontSize: 9, color: '#484f58', fontWeight: 600 }}>{lbl}</span>
-          <input type="number" value={v[i]} min={0}
-            onChange={e => { const nv = [...v] as [number,number,number,number]; nv[i] = parseFloat(e.target.value) || 0; onChange(nv) }}
-            onFocus={e => e.target.select()} className="prop-input" style={{ textAlign: 'center' }} />
-        </div>
-      ))}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4, flex: 1 }}>
+        {(['T','R','B','L'] as const).map((lbl, i) => (
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <span style={{ fontSize: 9, color: '#484f58', fontWeight: 600 }}>{lbl}</span>
+            <input type="number" value={v[i]} min={0}
+              onChange={e => handleValChange(i, parseFloat(e.target.value) || 0)}
+              onFocus={e => e.target.select()} className="prop-input" style={{ textAlign: 'center' }} />
+          </div>
+        ))}
+      </div>
+      <button
+        onClick={() => setLocked(!locked)}
+        title={locked ? "Unlink padding values" : "Link padding values"}
+        style={{
+          width: 22, height: 22, padding: 0, marginTop: 14,
+          background: locked ? 'rgba(232,117,10,0.1)' : 'rgba(255,255,255,0.03)',
+          border: `1px solid ${locked ? '#e8750a' : 'rgba(255,255,255,0.08)'}`,
+          color: locked ? '#e8750a' : '#8b949e',
+          borderRadius: 3, cursor: 'pointer', fontSize: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 120ms',
+        }}
+      >
+        {locked ? '🔗' : '🔓'}
+      </button>
     </div>
   )
 }
