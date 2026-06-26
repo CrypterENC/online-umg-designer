@@ -46,6 +46,14 @@ const SEP = <div className="w-px h-4 shrink-0" style={{ background: 'rgba(255,25
 
 export default function Designer() {
   const [state, dispatch] = useReducer(reducer, initialState)
+
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
+  const [isVercelBuilding, setIsVercelBuilding] = useState<boolean>(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [leftTab, setLeftTab] = useState<'palette' | 'hierarchy'>('palette')
   const [tool, setTool] = useState<'select' | 'pan'>('select')
@@ -71,21 +79,43 @@ export default function Designer() {
 
         // If the server has a different version, load it
         if (data.version !== lastSyncedVersion.current) {
-          isSyncingFromServer.current = true
-          setSyncStatus('syncing')
-          
-          dispatch({ type: 'SET_TREE', tree: data.tree })
-          dispatch({ type: 'SET_CANVAS', canvas: data.canvas })
-          dispatch({ type: 'SET_WIDGET_NAME', name: data.widgetName })
-          
-          lastSyncedVersion.current = data.version
-          
-          setTimeout(() => {
-            if (active) {
-              isSyncingFromServer.current = false
-              setSyncStatus('connected')
+          if (data.version < lastSyncedVersion.current) {
+            console.warn(`Server version (${data.version}) is older than client version (${lastSyncedVersion.current}). Server likely recycled. Restoring state...`)
+            try {
+              const pushResp = await fetch('/api/design', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  tree: stateRef.current.tree,
+                  canvas: stateRef.current.canvas,
+                  widgetName: stateRef.current.widgetName,
+                }),
+              })
+              if (pushResp.ok) {
+                const pushData = await pushResp.json()
+                lastSyncedVersion.current = pushData.version
+                console.log(`Server state successfully restored to version ${pushData.version}`)
+              }
+            } catch (pushErr) {
+              console.error('Failed to restore server state after container recycle:', pushErr)
             }
-          }, 100)
+          } else {
+            isSyncingFromServer.current = true
+            setSyncStatus('syncing')
+            
+            dispatch({ type: 'SET_TREE', tree: data.tree })
+            dispatch({ type: 'SET_CANVAS', canvas: data.canvas })
+            dispatch({ type: 'SET_WIDGET_NAME', name: data.widgetName })
+            
+            lastSyncedVersion.current = data.version
+            
+            setTimeout(() => {
+              if (active) {
+                isSyncingFromServer.current = false
+                setSyncStatus('connected')
+              }
+            }, 100)
+          }
         }
       } catch (err) {
         if (active) {
@@ -99,6 +129,31 @@ export default function Designer() {
 
     // Poll every 1 second
     const interval = setInterval(poll, 1000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [])
+
+  // 1b. Vercel Build Status Polling Effect
+  useEffect(() => {
+    let active = true
+    const checkBuildStatus = async () => {
+      try {
+        const resp = await fetch('/api/build-status')
+        if (resp.ok) {
+          const data = await resp.json()
+          if (active && typeof data.isBuilding === 'boolean') {
+            setIsVercelBuilding(data.isBuilding)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch build status:', err)
+      }
+    }
+
+    checkBuildStatus()
+    const interval = setInterval(checkBuildStatus, 15000) // check every 15 seconds
     return () => {
       active = false
       clearInterval(interval)
@@ -269,6 +324,18 @@ export default function Designer() {
           }} />
           <span>{syncStatus === 'connected' ? 'LIVE' : syncStatus === 'syncing' ? 'SYNCING' : 'OFFLINE'}</span>
         </div>
+
+        {isVercelBuilding && (
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-1.5 animate-pulse" style={{
+            background: 'rgba(232,117,10,0.15)',
+            color: '#ff983d',
+            border: '1px solid rgba(232,117,10,0.3)',
+          }} title="Vercel is building the latest commit.">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#ff983d' }} />
+            <span>NEXT UPDATE IN PROGRESS</span>
+          </div>
+        )}
+
         {SEP}
 
         {/* Tool toggle */}
