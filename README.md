@@ -111,18 +111,46 @@ All colors use `#RRGGBBAA` format.
 
 ## MCP Integration
 
-The designer exposes an MCP endpoint at `/api/mcp` for AI-assisted widget authoring.
+The designer exposes a standard Model Context Protocol (MCP) server endpoint at `/api/mcp` and a REST helper endpoint at `/api/call` for AI-assisted widget layout authoring.
 
-Available tools via `/api/call`:
+The live designer is deployed at: **[https://web-umg-designer.vercel.app/](https://web-umg-designer.vercel.app/)**
 
-| Tool | Description |
-|---|---|
-| `add_widget` | Add a widget (type, name, properties) to the canvas |
-| `list_widgets` | List all widgets in the current design |
-| `export_design` | Save current design to `.umgbridge.json` |
-| `clear_canvas` | Reset the canvas |
+### 1. Register the Live MCP Server
+Add the live Vercel server to your global `.mcp.json` configuration file (e.g. for Claude Desktop or Claude Code):
 
-For AI-driven design via Claude Code, pair this with the `umg-mcp-server` (port 8001).
+```json
+{
+  "mcpServers": {
+    "umg-designer-live": {
+      "type": "http",
+      "url": "https://web-umg-designer.vercel.app/api/mcp"
+    }
+  }
+}
+```
+
+### 2. Live Bidirectional Sync Workflow
+- **AI-driven Authoring**: Open the live designer in your browser. Connect your AI agent to the `umg-designer-live` server and instruct it to build a UI (e.g. *"Create a vertical layout with 3 navigation buttons using umg-designer-live"*). As the AI executes `add_widget` calls, the layout will immediately update in your browser live within 1 second.
+- **Manual Edits Feedback**: Any manual updates you perform in the browser (dragging, resizing, renaming, styling widgets) are automatically pushed back to the server. The AI will see your manual edits when it calls `list_widgets`.
+- **Exporting**: Click **Export .umgbridge.json** in the browser to download the schema for direct import into UE5.
+
+### 3. Available Tools
+
+| Tool | Parameters | Description |
+|---|---|---|
+| `add_widget` | `type`, `name`, `properties?`, `style?`, `slot?`, `parentId?` | Add a widget (type, name, slot parameters, styles, parent nesting) to the canvas |
+| `list_widgets` | None | Recursively list all widgets in the current design |
+| `export_design` | `filename` | Export the current design tree in `.umgbridge.json` schema |
+| `clear_canvas` | None | Reset the canvas and remove all widgets |
+
+### 4. REST Call Fallback (Without MCP Config)
+You can test tool execution using standard HTTP POST requests to `/api/call`:
+
+```bash
+curl -X POST https://web-umg-designer.vercel.app/api/call \
+  -H "Content-Type: application/json" \
+  -d '{"name": "add_widget", "arguments": {"type": "Button", "name": "Btn_Play", "properties": {"text": "Play Now"}}}'
+```
 
 ---
 
