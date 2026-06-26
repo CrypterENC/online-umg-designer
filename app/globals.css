@@ -148,6 +148,16 @@ html, body {
 ::-webkit-scrollbar-thumb { background: #333843; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #454d5c; }
 
+/* ── Hide Number Spinners ────────────────── */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
 /* ── Preview animation keyframes ─────────── */
 @keyframes umg-fade       { 0%,100%{opacity:0}               50%{opacity:1} }
 @keyframes umg-pulse      { 0%,100%{transform:scale(1)}      50%{transform:scale(1.06)} }

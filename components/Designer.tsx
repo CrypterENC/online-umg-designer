@@ -220,8 +220,8 @@ export default function Designer() {
   const zoomIn  = () => { const n = ZOOM_STEPS.find(z => z > state.zoom); if (n) dispatch({ type: 'SET_ZOOM', zoom: n }) }
   const zoomOut = () => { const p = [...ZOOM_STEPS].reverse().find(z => z < state.zoom); if (p) dispatch({ type: 'SET_ZOOM', zoom: p }) }
   const zoomFit = useCallback(() => {
-    const availW = window.innerWidth - 376   // sidebar 176 + props 200
-    const availH = window.innerHeight - 36   // toolbar
+    const availW = window.innerWidth - 600   // left sidebar 240 + right sidebar 320 + margin 40
+    const availH = window.innerHeight - 80   // toolbar 42 + margin 38
     const fit = Math.min(availW / state.canvas.w, availH / state.canvas.h) * 0.88
     dispatch({ type: 'SET_ZOOM', zoom: fit })
   }, [state.canvas.w, state.canvas.h])
@@ -472,7 +472,7 @@ export default function Designer() {
         {/* Right panel */}
         <aside
           className="shrink-0 flex flex-col"
-          style={{ width: 280, borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ width: 320, borderLeft: '1px solid rgba(255,255,255,0.08)' }}
         >
           <div
             className="flex items-center justify-between px-3 shrink-0"
