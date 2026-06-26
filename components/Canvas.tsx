@@ -11,7 +11,7 @@ interface Props {
   zoom: number
   panMode: boolean
   onSelect: (id: string | null) => void
-  onDrop: (targetId: string, widgetType: string, draggedId?: string) => void
+  onDrop: (targetId: string, widgetType: string, draggedId?: string, dropPos?: { x: number; y: number }) => void
   onMove: (id: string, x: number, y: number) => void
   onResize: (id: string, pos: { x: number; y: number }, size: { x: number; y: number }) => void
   onRootDrop: (widgetType: string) => void

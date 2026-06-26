@@ -28,15 +28,16 @@ const DEFAULT_CANVAS_PANEL_SLOT = {
   anchors: { min: [0, 0] as [number, number], max: [0, 0] as [number, number] },
 }
 
+const WIDGET_DEFAULT_SIZES: Record<string, { x: number; y: number }> = {
+  Text: { x: 200, y: 40 }, Button: { x: 200, y: 60 }, TextInput: { x: 200, y: 40 },
+  Image: { x: 200, y: 150 }, ProgressBar: { x: 200, y: 20 }, Slider: { x: 200, y: 30 }, CheckBox: { x: 30, y: 30 },
+}
+
 function makeNode(type: string): WidgetNode {
   const def = WMAP[type] || {}
-  const sizeMap: Record<string, { x: number; y: number }> = {
-    Text: { x: 200, y: 40 }, Button: { x: 200, y: 60 }, TextInput: { x: 200, y: 40 },
-    Image: { x: 200, y: 150 }, ProgressBar: { x: 200, y: 20 }, Slider: { x: 200, y: 30 }, CheckBox: { x: 30, y: 30 },
-  }
   return {
     id: uid(), type, name: type,
-    slot: sizeMap[type] ? { size: sizeMap[type] } : {},
+    slot: WIDGET_DEFAULT_SIZES[type] ? { size: WIDGET_DEFAULT_SIZES[type] } : {},
     style: { ...(def.defaultStyle || {}) } as WidgetNode['style'],
     properties: { ...(def.defaultProps || {}) } as WidgetNode['properties'],
     children: [],
@@ -422,7 +423,7 @@ export default function Designer() {
     }
   }, [state.tree, state.sel, state.expanded])
 
-  const handleDrop = useCallback((targetId: string, widgetType: string, draggedId?: string) => {
+  const handleDrop = useCallback((targetId: string, widgetType: string, draggedId?: string, dropPos?: { x: number; y: number }) => {
     if (draggedId) return
     const node = makeNode(widgetType)
     
@@ -440,6 +441,19 @@ export default function Designer() {
         if (parentNode) {
           finalTargetId = parentNode.id
         }
+      }
+    }
+
+    const finalTargetNode = state.tree ? findNode(state.tree, finalTargetId) : null
+    if (finalTargetNode && finalTargetNode.type === 'CanvasPanel') {
+      const defaultSize = WIDGET_DEFAULT_SIZES[widgetType] || { x: 200, y: 100 }
+      node.slot = {
+        position: dropPos ? {
+          x: Math.round(dropPos.x - defaultSize.x / 2),
+          y: Math.round(dropPos.y - defaultSize.y / 2)
+        } : { x: 100, y: 100 },
+        size: defaultSize,
+        anchors: { min: [0, 0] as [number, number], max: [0, 0] as [number, number] },
       }
     }
 

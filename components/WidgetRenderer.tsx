@@ -9,7 +9,7 @@ interface Props {
   parentType: string
   selectedId: string | null
   onSelect: (id: string) => void
-  onDrop: (targetId: string, draggedType: string, draggedId?: string) => void
+  onDrop: (targetId: string, draggedType: string, draggedId?: string, dropPos?: { x: number; y: number }) => void
   onMove?: (id: string, x: number, y: number) => void
   onDragEnd?: () => void
   zoom: number
@@ -164,7 +164,13 @@ export default function WidgetRenderer({ node, parentType, selectedId, onSelect,
     e.preventDefault(); e.stopPropagation()
     const widgetType = e.dataTransfer.getData('widgetType')
     const draggedId  = e.dataTransfer.getData('widgetId')
-    if (widgetType) onDrop(node.id, widgetType, draggedId || undefined)
+    if (widgetType) {
+      const canvasPanelEl = e.currentTarget.closest('[data-widget-type="CanvasPanel"]') || e.currentTarget
+      const rect = canvasPanelEl.getBoundingClientRect()
+      const x = Math.round((e.clientX - rect.left) / zoom)
+      const y = Math.round((e.clientY - rect.top) / zoom)
+      onDrop(node.id, widgetType, draggedId || undefined, { x, y })
+    }
   }
   const handleClick = (e: React.MouseEvent) => { e.stopPropagation(); onSelect(node.id) }
   const handleDragStart = (e: React.DragEvent) => {
