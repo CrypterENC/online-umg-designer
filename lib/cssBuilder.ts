@@ -34,6 +34,10 @@ export function buildSlotCss(slot: SlotData, parentType: string): string {
   const pad = slot.padding || [0, 0, 0, 0]
   css += `margin:${pad[0]}px ${pad[1]}px ${pad[2]}px ${pad[3]}px;`
 
+  if (['VerticalBox', 'HorizontalBox', 'ScrollBox', 'Overlay', 'GridPanel', 'UniformGridPanel'].includes(parentType)) {
+    css += `width:auto;height:auto;`
+  }
+
   if (parentType === 'VerticalBox' || parentType === 'ScrollBox') {
     css += slot.sizeRule === 'Fill' ? `flex:${slot.fillWeight||1} 1 0;min-height:0;` : `flex:0 0 auto;`
     const ha = slot.horizontalAlignment || 'Fill'
@@ -85,6 +89,13 @@ export function buildWidgetCss(node: WidgetNode): string {
   if (node.type === 'WrapBox') css += `display:flex;flex-wrap:wrap;width:100%;height:100%;`
   if (node.type === 'CanvasPanel') css += `position:relative;width:100%;height:100%;`
   if (node.type === 'Border') css += `display:flex;width:100%;height:100%;`
+  if (node.type === 'SizeBox') {
+    css += `display:flex;width:100%;height:100%;`
+    if (p.minDesiredWidth && (p.minDesiredWidth as number) > 0) css += `min-width:${p.minDesiredWidth}px;`
+    if (p.minDesiredHeight && (p.minDesiredHeight as number) > 0) css += `min-height:${p.minDesiredHeight}px;`
+    if (p.maxDesiredWidth && (p.maxDesiredWidth as number) > 0) css += `max-width:${p.maxDesiredWidth}px;`
+    if (p.maxDesiredHeight && (p.maxDesiredHeight as number) > 0) css += `max-height:${p.maxDesiredHeight}px;`
+  }
   if (node.type === 'Button') css += `display:flex;align-items:center;justify-content:center;cursor:pointer;`
   if (node.type === 'BackgroundBlur') {
     const blur = (p.blurStrength as number) ?? 10
