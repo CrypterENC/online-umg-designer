@@ -550,6 +550,52 @@ const SECTIONS = [
     ),
   },
   {
+    id: 'mcp-integration',
+    title: 'MCP & Live AI Sync',
+    content: (
+      <>
+        <P>UMG Designer includes a standard Model Context Protocol (MCP) server that lets AI assistants (like Claude) build layouts for you in real-time. It also provides a REST helper endpoint for quick script automation.</P>
+
+        <SubHeading>1. Connecting your AI assistant</SubHeading>
+        <P>Add the live Vercel designer's MCP endpoint to your global <Code>.mcp.json</Code> file:</P>
+        <pre style={{ background: 'rgba(255,255,255,0.04)', padding: 12, borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#8b949e', border: '1px solid rgba(255,255,255,0.08)', overflowX: 'auto' }}>
+{`{
+  "mcpServers": {
+    "umg-designer-live": {
+      "type": "http",
+      "url": "https://web-umg-designer.vercel.app/api/mcp"
+    }
+  }
+}`}
+        </pre>
+
+        <SubHeading>2. How Live Bidirectional Sync works</SubHeading>
+        <P>Keep the designer open in your browser while working with your AI assistant. As the AI calls tools, the workspace updates instantly:</P>
+        <Steps items={[
+          { n: '01', title: 'AI edits', desc: 'When the AI calls add_widget or clear_canvas, the browser polls the change and renders it within 1 second.' },
+          { n: '02', title: 'Your edits', desc: 'When you move, style, or add widgets manually in the browser, changes are saved back to Vercel instantly.' },
+          { n: '03', title: 'State feedback', desc: 'The AI sees your manual modifications when it calls list_widgets, ensuring you can design together.' },
+        ]} />
+
+        <SubHeading>3. Available MCP Tools</SubHeading>
+        <KbTable rows={[
+          ['add_widget',     'Parameters: type, name, properties?, style?, slot?, parentId?. Adds a widget to the tree.'],
+          ['list_widgets',   'Lists all widgets and their properties currently on the canvas.'],
+          ['clear_canvas',   'Resets the canvas tree to an empty state.'],
+          ['export_design',  'Parameters: filename. Exports the design tree as .umgbridge.json.'],
+        ]} />
+
+        <SubHeading>4. REST Call Fallback</SubHeading>
+        <P>If you do not want to configure a full MCP client, you can trigger layout updates with standard HTTP POST requests to <Code>/api/call</Code>:</P>
+        <pre style={{ background: 'rgba(255,255,255,0.04)', padding: 12, borderRadius: 6, fontSize: 11, fontFamily: 'monospace', color: '#8b949e', border: '1px solid rgba(255,255,255,0.08)', overflowX: 'auto' }}>
+{`curl -X POST https://web-umg-designer.vercel.app/api/call \\
+  -H "Content-Type: application/json" \\
+  -d '{"name": "add_widget", "arguments": {"type": "Button", "name": "Btn_Start"}}'`}
+        </pre>
+      </>
+    ),
+  },
+  {
     id: 'gradients',
     title: 'Gradient Backgrounds',
     content: (
