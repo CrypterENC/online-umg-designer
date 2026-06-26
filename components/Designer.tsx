@@ -486,6 +486,7 @@ export default function Designer() {
           <div className="flex-1 overflow-hidden">
             <PropertiesPanel
               node={selectedNode ?? null}
+              tree={state.tree}
               onChange={(id, patch) => dispatch({ type: 'UPDATE_NODE', id, patch })}
             />
           </div>

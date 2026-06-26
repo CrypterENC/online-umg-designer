@@ -1,10 +1,12 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { WidgetNode, StyleData, SlotData, PropData } from '@/lib/types'
 import { WMAP } from '@/lib/widgetDefs'
+import { findParent } from '@/lib/treeOps'
 
 interface Props {
   node: WidgetNode | null
+  tree: WidgetNode | null
   onChange: (id: string, patch: Partial<WidgetNode>) => void
 }
 
@@ -138,7 +140,13 @@ const VISIBILITY  = ['Visible', 'Hidden', 'Collapsed']
 const WEIGHTS     = ['Regular', 'Bold', 'Light', 'Thin']
 const JUSTIFY     = ['Left', 'Center', 'Right', 'Fill']
 
-export default function PropertiesPanel({ node, onChange }: Props) {
+export default function PropertiesPanel({ node, tree, onChange }: Props) {
+  const [targetSiblingId, setTargetSiblingId] = useState<string>('')
+
+  useEffect(() => {
+    setTargetSiblingId('')
+  }, [node?.id])
+
   if (!node) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -162,6 +170,62 @@ export default function PropertiesPanel({ node, onChange }: Props) {
   const font = (p.font as Record<string, unknown>) || {}
   const isTextWidget = node.type === 'Text' || node.type === 'RichText'
   const isPanel = def?.panel ?? false
+
+  const parent = tree ? findParent(tree, node.id) : null
+  const isCanvasChild = parent?.type === 'CanvasPanel'
+  const siblings = parent && parent.type === 'CanvasPanel' ? parent.children.filter(c => c.id !== node.id) : []
+  const targetSibling = siblings.find(sib => sib.id === targetSiblingId)
+
+  const handleAlign = (op: 'align-left' | 'align-right' | 'align-top' | 'align-bottom' | 'place-left' | 'place-right' | 'place-above' | 'place-below' | 'match-w' | 'match-h') => {
+    if (!targetSibling) return
+    const siblingSlot = targetSibling.slot || {}
+    const siblingPos = siblingSlot.position || { x: 0, y: 0 }
+    const siblingSize = siblingSlot.size || { x: 200, y: 100 }
+
+    const currentPos = slot.position || { x: 0, y: 0 }
+    const currentSize = slot.size || { x: 200, y: 100 }
+
+    let nextPos = { ...currentPos }
+    let nextSize = { ...currentSize }
+
+    switch (op) {
+      case 'match-w':
+        nextSize.x = siblingSize.x
+        break
+      case 'match-h':
+        nextSize.y = siblingSize.y
+        break
+      case 'align-left':
+        nextPos.x = siblingPos.x
+        break
+      case 'align-right':
+        nextPos.x = siblingPos.x + siblingSize.x - currentSize.x
+        break
+      case 'align-top':
+        nextPos.y = siblingPos.y
+        break
+      case 'align-bottom':
+        nextPos.y = siblingPos.y + siblingSize.y - currentSize.y
+        break
+      case 'place-left':
+        nextPos.x = siblingPos.x - currentSize.x
+        break
+      case 'place-right':
+        nextPos.x = siblingPos.x + siblingSize.x
+        break
+      case 'place-above':
+        nextPos.y = siblingPos.y - currentSize.y
+        break
+      case 'place-below':
+        nextPos.y = siblingPos.y + siblingSize.y
+        break
+    }
+
+    patchSlot({
+      position: nextPos,
+      size: nextSize
+    })
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -201,6 +265,71 @@ export default function PropertiesPanel({ node, onChange }: Props) {
               <Row label="Pos Y"><NumInput value={slot.position?.y ?? 0} onChange={v => patchSlot({ position: { x: slot.position?.x ?? 0, y: v } })} /></Row>
               <Row label="Width"><NumInput value={slot.size?.x ?? 200} min={1} onChange={v => patchSlot({ size: { x: v, y: slot.size?.y ?? 100 } })} /></Row>
               <Row label="Height"><NumInput value={slot.size?.y ?? 100} min={1} onChange={v => patchSlot({ size: { x: slot.size?.x ?? 200, y: v } })} /></Row>
+
+              {/* Sibling Auto-Alignment Controls */}
+              {isCanvasChild && siblings.length > 0 && (
+                <div style={{ margin: '8px 12px', padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 6, border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: '#e8750a', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                    Sibling Auto-Align
+                  </div>
+                  
+                  <select 
+                    value={targetSiblingId} 
+                    onChange={e => setTargetSiblingId(e.target.value)} 
+                    className="prop-input"
+                    style={{ fontSize: 11 }}
+                  >
+                    <option value="">Select sibling...</option>
+                    {siblings.map(sib => (
+                      <option key={sib.id} value={sib.id}>{sib.name} ({sib.type})</option>
+                    ))}
+                  </select>
+
+                  {targetSibling && (<>
+                    {/* Match Width & Match Height */}
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button 
+                        onClick={() => handleAlign('match-w')}
+                        className="sibling-btn"
+                        style={{ flex: 1 }}
+                        title="Match Sibling's Width"
+                      >
+                        ↔ Match W
+                      </button>
+                      <button 
+                        onClick={() => handleAlign('match-h')}
+                        className="sibling-btn"
+                        style={{ flex: 1 }}
+                        title="Match Sibling's Height"
+                      >
+                        ↕ Match H
+                      </button>
+                    </div>
+
+                    {/* Align Edges */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: '#484f58', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Align Edges</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+                        <button onClick={() => handleAlign('align-left')} title="Align Left Edges" className="sibling-btn-small">L</button>
+                        <button onClick={() => handleAlign('align-top')} title="Align Top Edges" className="sibling-btn-small">T</button>
+                        <button onClick={() => handleAlign('align-bottom')} title="Align Bottom Edges" className="sibling-btn-small">B</button>
+                        <button onClick={() => handleAlign('align-right')} title="Align Right Edges" className="sibling-btn-small">R</button>
+                      </div>
+                    </div>
+
+                    {/* Place Outer snapping */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: '#484f58', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Place Adjacent</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+                        <button onClick={() => handleAlign('place-left')} title="Place to Left of Sibling" className="sibling-btn-small">←</button>
+                        <button onClick={() => handleAlign('place-above')} title="Place Above Sibling" className="sibling-btn-small">↑</button>
+                        <button onClick={() => handleAlign('place-below')} title="Place Below Sibling" className="sibling-btn-small">↓</button>
+                        <button onClick={() => handleAlign('place-right')} title="Place to Right of Sibling" className="sibling-btn-small">→</button>
+                      </div>
+                    </div>
+                  </>)}
+                </div>
+              )}
             </>) : (<>
               <Row label="Size Rule">
                 <SelectInput value={slot.sizeRule || 'Auto'} options={SIZE_RULES} onChange={v => patchSlot({ sizeRule: v as 'Auto'|'Fill' })} />

@@ -165,3 +165,50 @@ input[type=number] {
 @keyframes umg-slide-left { from{transform:translateX(24px);opacity:0} to{transform:none;opacity:1} }
 @keyframes umg-scale      { 0%,100%{transform:scale(0.82);opacity:0} 15%,85%{opacity:1} 50%{transform:scale(1)} }
 @keyframes umg-bounce     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+
+/* ── Sibling alignment button styles ────── */
+.sibling-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  background: #161b22;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #c9d1d9;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.sibling-btn:hover {
+  background: rgba(232,117,10,0.1);
+  border-color: #e8750a;
+  color: #e8750a;
+}
+.sibling-btn:active {
+  opacity: 0.7;
+}
+
+.sibling-btn-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  background: #0d1117;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: #8b949e;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.sibling-btn-small:hover {
+  background: rgba(232,117,10,0.1);
+  border-color: #e8750a;
+  color: #e8750a;
+}
+.sibling-btn-small:active {
+  opacity: 0.7;
+}
