@@ -310,100 +310,119 @@ export default function Designer() {
 
       {/* ── Toolbar ──────────────────────────────────────────── */}
       <header
-        className="flex items-center gap-2 px-3 shrink-0"
-        style={{ height: 42, background: '#1e2229', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        className="flex items-center gap-2 px-3 shrink-0 overflow-x-auto"
+        style={{ height: 42, background: '#1e2229', borderBottom: '1px solid rgba(255,255,255,0.08)', scrollbarWidth: 'none' }}
       >
-        <span className="section-label mr-2" style={{ letterSpacing: '0.12em' }}>UMG Designer</span>
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300" style={{
-          background: syncStatus === 'connected' ? 'rgba(64,217,114,0.1)' : syncStatus === 'syncing' ? 'rgba(242,140,26,0.1)' : 'rgba(255,107,107,0.1)',
-          color: syncStatus === 'connected' ? '#40d972' : syncStatus === 'syncing' ? '#f28c1a' : '#ff6b6b',
-          border: `1px solid ${syncStatus === 'connected' ? 'rgba(64,217,114,0.2)' : syncStatus === 'syncing' ? 'rgba(242,140,26,0.2)' : 'rgba(255,107,107,0.2)'}`
-        }}>
-          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{
-            background: syncStatus === 'connected' ? '#40d972' : syncStatus === 'syncing' ? '#f28c1a' : '#ff6b6b'
-          }} />
-          <span>{syncStatus === 'connected' ? 'LIVE' : syncStatus === 'syncing' ? 'SYNCING' : 'OFFLINE'}</span>
-        </div>
+        {/* Group 1: Title and Badges */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="section-label mr-1.5" style={{ letterSpacing: '0.12em' }}>UMG Designer</span>
+          
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300" style={{
+            background: syncStatus === 'connected' ? 'rgba(64,217,114,0.1)' : syncStatus === 'syncing' ? 'rgba(242,140,26,0.1)' : 'rgba(255,107,107,0.1)',
+            color: syncStatus === 'connected' ? '#40d972' : syncStatus === 'syncing' ? '#f28c1a' : '#ff6b6b',
+            border: `1px solid ${syncStatus === 'connected' ? 'rgba(64,217,114,0.2)' : syncStatus === 'syncing' ? 'rgba(242,140,26,0.2)' : 'rgba(255,107,107,0.2)'}`
+          }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{
+              background: syncStatus === 'connected' ? '#40d972' : syncStatus === 'syncing' ? '#f28c1a' : '#ff6b6b'
+            }} />
+            <span>{syncStatus === 'connected' ? 'LIVE' : syncStatus === 'syncing' ? 'SYNCING' : 'OFFLINE'}</span>
+          </div>
 
-        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-1.5" style={{
-          background: isVercelBuilding ? 'rgba(232,117,10,0.15)' : 'rgba(255,255,255,0.03)',
-          color: isVercelBuilding ? '#ff983d' : '#8b949e',
-          border: isVercelBuilding ? '1px solid rgba(232,117,10,0.3)' : '1px solid rgba(255,255,255,0.08)',
-        }} title={isVercelBuilding ? "Vercel is building the latest commit." : "Vercel deployments are up to date."}>
-          <span className={`w-1.5 h-1.5 rounded-full ${isVercelBuilding ? 'animate-pulse' : ''}`} style={{
-            background: isVercelBuilding ? '#ff983d' : '#8b949e'
-          }} />
-          <span>{isVercelBuilding ? 'NEXT UPDATE IN PROGRESS' : 'VERCEL: IDLE'}</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-0.5" style={{
+            background: isVercelBuilding ? 'rgba(232,117,10,0.15)' : 'rgba(255,255,255,0.03)',
+            color: isVercelBuilding ? '#ff983d' : '#8b949e',
+            border: isVercelBuilding ? '1px solid rgba(232,117,10,0.3)' : '1px solid rgba(255,255,255,0.08)',
+          }} title={isVercelBuilding ? "Vercel is building the latest commit." : "Vercel deployments are up to date."}>
+            <span className={`w-1.5 h-1.5 rounded-full ${isVercelBuilding ? 'animate-pulse' : ''}`} style={{
+              background: isVercelBuilding ? '#ff983d' : '#8b949e'
+            }} />
+            <span>{isVercelBuilding ? 'NEXT UPDATE IN PROGRESS' : 'VERCEL: IDLE'}</span>
+          </div>
         </div>
 
         {SEP}
 
-        {/* Tool toggle */}
-        <button
-          onClick={() => setTool('select')}
-          title="Select (V)"
-          className="tbtn"
-          style={{ width: 28, padding: 0, borderColor: tool === 'select' ? '#e8750a' : undefined, color: tool === 'select' ? '#e8750a' : undefined }}
-        >▲</button>
-        <button
-          onClick={() => setTool('pan')}
-          title="Pan (H · Space+drag)"
-          className="tbtn"
-          style={{ width: 28, padding: 0, borderColor: tool === 'pan' ? '#e8750a' : undefined, color: tool === 'pan' ? '#e8750a' : undefined }}
-        >✥</button>
+        {/* Group 2: Tool toggle */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setTool('select')}
+            title="Select (V)"
+            className="tbtn"
+            style={{ width: 28, padding: 0, borderColor: tool === 'select' ? '#e8750a' : undefined, color: tool === 'select' ? '#e8750a' : undefined }}
+          >▲</button>
+          <button
+            onClick={() => setTool('pan')}
+            title="Pan (H · Space+drag)"
+            className="tbtn"
+            style={{ width: 28, padding: 0, borderColor: tool === 'pan' ? '#e8750a' : undefined, color: tool === 'pan' ? '#e8750a' : undefined }}
+          >✥</button>
+        </div>
+
         {SEP}
 
-        <select
-          className="input-field"
-          style={{ width: 112 }}
-          value={`${state.canvas.w}×${state.canvas.h}`}
-          onChange={e => { const p = CANVAS_PRESETS[e.target.value]; if (p) dispatch({ type: 'SET_CANVAS', canvas: p }) }}
-        >
-          {Object.keys(CANVAS_PRESETS).map(k => <option key={k} value={k}>{k}</option>)}
-        </select>
+        {/* Group 3: Canvas Preset & Widget Name */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <select
+            className="input-field"
+            style={{ width: 112 }}
+            value={`${state.canvas.w}×${state.canvas.h}`}
+            onChange={e => { const p = CANVAS_PRESETS[e.target.value]; if (p) dispatch({ type: 'SET_CANVAS', canvas: p }) }}
+          >
+            {Object.keys(CANVAS_PRESETS).map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
 
-        <input
-          type="text"
-          value={state.widgetName}
-          onChange={e => dispatch({ type: 'SET_WIDGET_NAME', name: e.target.value })}
-          className="input-field"
-          style={{ width: 128 }}
-          placeholder="Widget name…"
-        />
+          <input
+            type="text"
+            value={state.widgetName}
+            onChange={e => dispatch({ type: 'SET_WIDGET_NAME', name: e.target.value })}
+            className="input-field"
+            style={{ width: 128 }}
+            placeholder="Widget name…"
+          />
+        </div>
 
         <div className="flex-1" />
 
-        <button onClick={() => dispatch({ type: 'UNDO' })} disabled={state.histIndex <= 0} title="Undo (Ctrl+Z)" className="tbtn">↩</button>
-        <button onClick={() => dispatch({ type: 'REDO' })} disabled={state.histIndex >= state.history.length - 1} title="Redo (Ctrl+Y)" className="tbtn">↪</button>
+        {/* Group 4: History Controls */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={() => dispatch({ type: 'UNDO' })} disabled={state.histIndex <= 0} title="Undo (Ctrl+Z)" className="tbtn">↩</button>
+          <button onClick={() => dispatch({ type: 'REDO' })} disabled={state.histIndex >= state.history.length - 1} title="Redo (Ctrl+Y)" className="tbtn">↪</button>
+        </div>
 
         {SEP}
 
-        <button onClick={zoomFit} className="tbtn" title="Fit to window">Fit</button>
-        <button onClick={zoomOut} className="tbtn" style={{ width: 24, padding: 0 }}>−</button>
-        <select
-          value={state.zoom}
-          onChange={e => dispatch({ type: 'SET_ZOOM', zoom: parseFloat(e.target.value) })}
-          className="input-field"
-          style={{ width: 56, textAlign: 'center' }}
-        >
-          {ZOOM_STEPS.map(z => <option key={z} value={z}>{Math.round(z * 100)}%</option>)}
-        </select>
-        <button onClick={zoomIn} className="tbtn" style={{ width: 24, padding: 0 }}>+</button>
+        {/* Group 5: Zoom Controls */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button onClick={zoomFit} className="tbtn" title="Fit to window">Fit</button>
+          <button onClick={zoomOut} className="tbtn" style={{ width: 24, padding: 0 }}>−</button>
+          <select
+            value={state.zoom}
+            onChange={e => dispatch({ type: 'SET_ZOOM', zoom: parseFloat(e.target.value) })}
+            className="input-field"
+            style={{ width: 56, textAlign: 'center' }}
+          >
+            {ZOOM_STEPS.map(z => <option key={z} value={z}>{Math.round(z * 100)}%</option>)}
+          </select>
+          <button onClick={zoomIn} className="tbtn" style={{ width: 24, padding: 0 }}>+</button>
+        </div>
 
         {SEP}
 
-        <button ref={themesButtonRef} onClick={() => setShowThemes(v => !v)} className="tbtn" title="Color Themes" style={{ borderColor: showThemes ? '#e8750a' : undefined, color: showThemes ? '#e8750a' : undefined }}>Themes</button>
-        <button onClick={() => setShowPreview(true)} className="tbtn" title="Preview (P)" style={{ borderColor: showPreview ? '#e8750a' : undefined, color: showPreview ? '#e8750a' : undefined }}>Preview</button>
-        <button onClick={() => window.open('/docs', '_blank')} className="tbtn" title="Documentation">?</button>
-        <button onClick={() => { if (!state.tree || confirm('Clear canvas?')) dispatch({ type: 'CLEAR' }) }} className="tbtn">Clear</button>
-        <button onClick={() => fileInputRef.current?.click()} className="tbtn">Import</button>
-        <button onClick={() => exportJSON(state.tree, state.canvas, state.widgetName)} className="tbtn-primary">
-          Export JSON
-        </button>
+        {/* Group 6: Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          <button ref={themesButtonRef} onClick={() => setShowThemes(v => !v)} className="tbtn" title="Color Themes" style={{ borderColor: showThemes ? '#e8750a' : undefined, color: showThemes ? '#e8750a' : undefined }}>Themes</button>
+          <button onClick={() => setShowPreview(true)} className="tbtn" title="Preview (P)" style={{ borderColor: showPreview ? '#e8750a' : undefined, color: showPreview ? '#e8750a' : undefined }}>Preview</button>
+          <button onClick={() => window.open('/docs', '_blank')} className="tbtn" title="Documentation">?</button>
+          <button onClick={() => { if (!state.tree || confirm('Clear canvas?')) dispatch({ type: 'CLEAR' }) }} className="tbtn">Clear</button>
+          <button onClick={() => fileInputRef.current?.click()} className="tbtn">Import</button>
+          <button onClick={() => exportJSON(state.tree, state.canvas, state.widgetName)} className="tbtn-primary">
+            Export JSON
+          </button>
+        </div>
+
         <input ref={fileInputRef} type="file" accept=".json" className="hidden"
           onChange={e => { if (e.target.files?.[0]) { handleImport(e.target.files[0]); e.target.value = '' } }} />
       </header>
-
       {/* ── Theme picker ─────────────────────────────────────── */}
       {showThemes && (
         <ThemePicker
