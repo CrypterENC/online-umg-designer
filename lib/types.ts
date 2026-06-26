@@ -40,7 +40,7 @@ export type PropData = {
   fontSize?: number
   fontStyle?: string
   color?: string
-  font?: { size?: number; weight?: string; letterSpacing?: number }
+  font?: { size?: number; weight?: string; letterSpacing?: number; family?: string }
   horizontalAlignment?: string
   verticalAlignment?: string
   hintText?: string

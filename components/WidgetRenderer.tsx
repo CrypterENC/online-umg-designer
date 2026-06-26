@@ -22,24 +22,26 @@ function LeafContent({ node }: { node: WidgetNode }) {
     case 'Text':
     case 'RichText': {
       const col = hexToRgba((p.color as string) || '#faf5ebff')
-      const font = p.font as { size?: number; weight?: string; letterSpacing?: number } | undefined
+      const font = p.font as { size?: number; weight?: string; letterSpacing?: number; family?: string } | undefined
+      const ff = font?.family && font.family !== 'Default' ? `"${font.family}", sans-serif` : 'inherit'
       const sz = (p.fontSize as number) || font?.size || 14
       const fw = p.fontStyle === 'Bold' || font?.weight === 'Bold' ? '700' : '400'
       const ls = font?.letterSpacing ? `${font.letterSpacing / 1000}em` : 'normal'
       const j = (p.justification as string) || 'Left'
       const ta = j === 'Center' ? 'center' : j === 'Right' ? 'right' : j === 'Fill' ? 'justify' : 'left'
       return (
-        <span style={{ color: col, fontSize: sz, fontWeight: fw, letterSpacing: ls, textAlign: ta as React.CSSProperties['textAlign'], display: 'block', width: '100%', pointerEvents: 'none', whiteSpace: 'pre-wrap' }}>
+        <span style={{ fontFamily: ff, color: col, fontSize: sz, fontWeight: fw, letterSpacing: ls, textAlign: ta as React.CSSProperties['textAlign'], display: 'block', width: '100%', pointerEvents: 'none', whiteSpace: 'pre-wrap' }}>
           {(p.text as string) || 'Text'}
         </span>
       )
     }
     case 'Button': {
       const col = hexToRgba((p.color as string) || '#faf5ebff')
-      const font = p.font as { size?: number; weight?: string } | undefined
+      const font = p.font as { size?: number; weight?: string; family?: string } | undefined
+      const ff = font?.family && font.family !== 'Default' ? `"${font.family}", sans-serif` : 'inherit'
       const sz = (p.fontSize as number) || font?.size || 16
       const fw = p.fontStyle === 'Bold' || font?.weight === 'Bold' ? '700' : '400'
-      return <span style={{ color: col, fontSize: sz, fontWeight: fw, pointerEvents: 'none' }}>{(p.text as string) || 'Button'}</span>
+      return <span style={{ fontFamily: ff, color: col, fontSize: sz, fontWeight: fw, pointerEvents: 'none' }}>{(p.text as string) || 'Button'}</span>
     }
     case 'Image': {
       const src = p.src as string
@@ -49,11 +51,12 @@ function LeafContent({ node }: { node: WidgetNode }) {
     case 'TextInput': {
       const hint = (p.hintText as string) || 'Enter text...'
       const col = hexToRgba((p.color as string) || '#888888ff')
-      const font = p.font as { size?: number } | undefined
+      const font = p.font as { size?: number; family?: string } | undefined
+      const ff = font?.family && font.family !== 'Default' ? `"${font.family}", sans-serif` : 'inherit'
       const sz = font?.size || 12
       return (
         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', padding: '0 8px', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, pointerEvents: 'none' }}>
-          <span style={{ color: col, fontSize: sz, fontStyle: 'italic' }}>{hint}</span>
+          <span style={{ fontFamily: ff, color: col, fontSize: sz, fontStyle: 'italic' }}>{hint}</span>
         </div>
       )
     }

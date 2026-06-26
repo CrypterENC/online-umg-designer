@@ -142,6 +142,42 @@ const SECTIONS = [
     ),
   },
   {
+    id: 'custom-fonts',
+    title: 'Custom Fonts Integration (Web to Unreal Engine)',
+    content: (
+      <>
+        <P>To use a custom font in Unreal Engine UI (UMG), you typically import the <Code>.ttf</Code> or <Code>.otf</Code> file directly into your Content Browser, which automatically creates a composite **Font Asset**, and then assign this asset to the Font property in the UMG details panel.</P>
+        <P>For **3D Text Render** components, you must configure the font asset for distance fields: Set Font Cache Type to Offline, enable Use Distance Field Alpha, and adjust the Texture Page Width/Height (e.g. 512 or 1024) to optimize rendering performance.</P>
+        
+        <SubHeading id="font-export-json">Automatic Font Packaging in UMG Bridge</SubHeading>
+        <P>Our UMG Designer simplifies this process. When you select a custom Google Font (such as <Code>Orbitron</Code> or <Code>Inter</Code>) in the property panel, it dynamically loads on the web canvas. When you click **Export JSON**, the font names and direct TTF download URLs are exported in the root <Code>fonts</Code> block:</P>
+        
+        <Tree lines={[
+          '{',
+          '  "version": "1.0",',
+          '  "name": "WBP_MyWidget",',
+          '  "fonts": [',
+          '    {',
+          '      "name": "Orbitron",',
+          '      "url": "https://fonts.gstatic.com/s/orbitron/v31/yMJRQI5C7vZOK6Ro0MyX59p2.ttf"',
+          '    }',
+          '  ],',
+          '  "tree": { ... }',
+          '}'
+        ]} />
+
+        <SubHeading id="font-ue-import">How the UMG Bridge Plugin Imports Fonts</SubHeading>
+        <P>Upon importing the JSON file inside Unreal Engine, the UMG Bridge C++ plugin automates the font download and registration process:</P>
+        
+        <Steps items={[
+          { n: '01', title: 'Download Font Files', desc: 'The plugin parses the "fonts" block, invokes UHttpModule/IHttpRequest to download the .ttf binary file, and saves it directly to the project directory: Content/UI/Fonts/FontName.ttf.' },
+          { n: '02', title: 'Create UFont Asset', desc: 'Using AssetTools and UFontFactory at edit-time, the plugin registers the newly downloaded file as a composite UFont asset and generates its default typeface entries.' },
+          { n: '03', title: 'Bind to Text Blocks', desc: 'The plugin iterates through the reconstructed widget hierarchy, loads the newly generated UFont asset using StaticLoadObject, and assigns it to the widget\'s FontInfo structure.' }
+        ]} />
+      </>
+    )
+  },
+  {
     id: 'best-practices',
     title: 'Best Practices',
     content: (

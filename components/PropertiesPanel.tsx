@@ -524,6 +524,25 @@ export default function PropertiesPanel({ node, tree, onChange }: Props) {
             <Row label="Color">
               <ColorInput value={(p.color as string) || '#faf5ebff'} onChange={v => patchProps({ color: v })} />
             </Row>
+            <Row label="Font Family">
+              <SelectInput
+                value={(font.family as string) || 'Default'}
+                options={['Default', 'Inter', 'Roboto', 'Outfit', 'Cinzel', 'Orbitron', 'Montserrat', 'Press Start 2P', 'Fira Code']}
+                onChange={v => {
+                  patchProps({ font: { ...font, family: v } })
+                  if (v !== 'Default' && typeof window !== 'undefined') {
+                    const linkId = `gfont-${v.toLowerCase().replace(/ /g, '-')}`
+                    if (!document.getElementById(linkId)) {
+                      const link = document.createElement('link')
+                      link.id = linkId
+                      link.rel = 'stylesheet'
+                      link.href = `https://fonts.googleapis.com/css2?family=${v.replace(/ /g, '+')}&display=swap`
+                      document.head.appendChild(link)
+                    }
+                  }
+                }}
+              />
+            </Row>
             <Row label="Font Size">
               <NumInput value={(font.size as number) || 14} min={1} onChange={v => patchProps({ font: { ...font, size: v } })} />
             </Row>
@@ -549,6 +568,25 @@ export default function PropertiesPanel({ node, tree, onChange }: Props) {
             </Row>
             <Row label="Color">
               <ColorInput value={(p.color as string) || '#888888ff'} onChange={v => patchProps({ color: v })} />
+            </Row>
+            <Row label="Font Family">
+              <SelectInput
+                value={(font.family as string) || 'Default'}
+                options={['Default', 'Inter', 'Roboto', 'Outfit', 'Cinzel', 'Orbitron', 'Montserrat', 'Press Start 2P', 'Fira Code']}
+                onChange={v => {
+                  patchProps({ font: { ...font, family: v } })
+                  if (v !== 'Default' && typeof window !== 'undefined') {
+                    const linkId = `gfont-${v.toLowerCase().replace(/ /g, '-')}`
+                    if (!document.getElementById(linkId)) {
+                      const link = document.createElement('link')
+                      link.id = linkId
+                      link.rel = 'stylesheet'
+                      link.href = `https://fonts.googleapis.com/css2?family=${v.replace(/ /g, '+')}&display=swap`
+                      document.head.appendChild(link)
+                    }
+                  }
+                }}
+              />
             </Row>
             <Row label="Font Size">
               <NumInput value={(font.size as number) || 12} min={1} onChange={v => patchProps({ font: { ...font, size: v } })} />
