@@ -1,15 +1,22 @@
 import { NextApiRequest, NextApiResponse } from 'next'
 
-// Attach to global scope to survive serverless function recycles in the same runtime instance
 const globalAny = global as any
-if (!globalAny.designState) {
-  globalAny.designState = {
-    version: 1,
-    updatedAt: Date.now(),
-    tree: null,
-    canvas: { w: 1920, h: 1080 },
-    widgetName: 'WBP_MyWidget',
+if (!globalAny.designStates) {
+  globalAny.designStates = {}
+}
+
+function getDesignState(room: string) {
+  const r = room || 'default'
+  if (!globalAny.designStates[r]) {
+    globalAny.designStates[r] = {
+      version: 1,
+      updatedAt: Date.now(),
+      tree: null,
+      canvas: { w: 1920, h: 1080 },
+      widgetName: 'WBP_MyWidget',
+    }
   }
+  return globalAny.designStates[r]
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -22,26 +29,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).end()
   }
 
+  const room = (req.query.room as string) || 'default'
+  const state = getDesignState(room)
+
   if (req.method === 'GET') {
-    return res.status(200).json(globalAny.designState)
+    return res.status(200).json(state)
   }
 
   if (req.method === 'POST' || req.method === 'PUT') {
     try {
       const { tree, canvas, widgetName } = req.body
 
-      if (tree !== undefined) globalAny.designState.tree = tree
-      if (canvas !== undefined) globalAny.designState.canvas = canvas
-      if (widgetName !== undefined) globalAny.designState.widgetName = widgetName
+      if (tree !== undefined) state.tree = tree
+      if (canvas !== undefined) state.canvas = canvas
+      if (widgetName !== undefined) state.widgetName = widgetName
 
       // Increment version and update timestamp
-      globalAny.designState.version += 1
-      globalAny.designState.updatedAt = Date.now()
+      state.version += 1
+      state.updatedAt = Date.now()
 
       return res.status(200).json({
         success: true,
-        version: globalAny.designState.version,
-        updatedAt: globalAny.designState.updatedAt,
+        version: state.version,
+        updatedAt: state.updatedAt,
       })
     } catch (error) {
       return res.status(500).json({ error: (error as Error).message })

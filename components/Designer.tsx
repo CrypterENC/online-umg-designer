@@ -52,7 +52,22 @@ export default function Designer() {
     stateRef.current = state
   }, [state])
 
+  const [roomId, setRoomId] = useState<string>('default')
   const [isVercelBuilding, setIsVercelBuilding] = useState<boolean>(false)
+
+  // Initialize room ID from URL search parameter on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      let r = params.get('room')
+      if (!r) {
+        r = Math.random().toString(36).substring(2, 8)
+        params.set('room', r)
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+      }
+      setRoomId(r)
+    }
+  }, [])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [leftTab, setLeftTab] = useState<'palette' | 'hierarchy'>('palette')
@@ -67,10 +82,15 @@ export default function Designer() {
 
   // 1. Polling Effect (pull from server)
   useEffect(() => {
+    if (roomId === 'default') return
+
+    // Reset sync version when switching rooms
+    lastSyncedVersion.current = 0
+
     let active = true
     const poll = async () => {
       try {
-        const resp = await fetch('/api/design')
+        const resp = await fetch(`/api/design?room=${roomId}`)
         if (!resp.ok) throw new Error('Offline')
         const data = await resp.json()
         if (!active) return
@@ -82,7 +102,7 @@ export default function Designer() {
           if (data.version < lastSyncedVersion.current) {
             console.warn(`Server version (${data.version}) is older than client version (${lastSyncedVersion.current}). Server likely recycled. Restoring state...`)
             try {
-              const pushResp = await fetch('/api/design', {
+              const pushResp = await fetch(`/api/design?room=${roomId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -133,7 +153,7 @@ export default function Designer() {
       active = false
       clearInterval(interval)
     }
-  }, [])
+  }, [roomId])
 
   // 1b. Vercel Build Status Polling Effect
   useEffect(() => {
@@ -162,12 +182,13 @@ export default function Designer() {
 
   // 2. Push Effect (send to server when client changes)
   useEffect(() => {
+    if (roomId === 'default') return
     if (isSyncingFromServer.current) return
 
     // Debounce pushing changes to server
     const timer = setTimeout(async () => {
       try {
-        const resp = await fetch('/api/design', {
+        const resp = await fetch(`/api/design?room=${roomId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -186,7 +207,7 @@ export default function Designer() {
     }, 800) // 800ms debounce
 
     return () => clearTimeout(timer)
-  }, [state.tree, state.canvas, state.widgetName])
+  }, [state.tree, state.canvas, state.widgetName, roomId])
 
   const selectedNode = state.tree && state.sel ? findNode(state.tree, state.sel) : null
 
@@ -337,6 +358,27 @@ export default function Designer() {
               background: isVercelBuilding ? '#ff983d' : '#8b949e'
             }} />
             <span>{isVercelBuilding ? 'NEXT UPDATE IN PROGRESS' : 'VERCEL: IDLE'}</span>
+          </div>
+
+          <div 
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(window.location.href)
+                alert('Collaborative room link copied to clipboard!')
+              } catch (err) {
+                alert('Link: ' + window.location.href)
+              }
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-0.5 cursor-pointer hover:bg-[rgba(255,255,255,0.06)]"
+            style={{
+              background: 'rgba(255,255,255,0.03)',
+              color: '#8b949e',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+            title="Click to copy collaborative room link"
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#e8750a' }} />
+            <span>ROOM: {roomId.toUpperCase()}</span>
           </div>
         </div>
 

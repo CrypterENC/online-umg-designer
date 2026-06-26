@@ -6,15 +6,22 @@ import { addWidgetToState, listWidgetsInTree } from '@/lib/mcpHelpers'
 
 const globalAny = global as any
 
-// Initialize design state if it doesn't exist
-if (!globalAny.designState) {
-  globalAny.designState = {
-    version: 1,
-    updatedAt: Date.now(),
-    tree: null,
-    canvas: { w: 1920, h: 1080 },
-    widgetName: 'WBP_MyWidget',
+if (!globalAny.designStates) {
+  globalAny.designStates = {}
+}
+
+function getDesignState(room: string) {
+  const r = room || 'default'
+  if (!globalAny.designStates[r]) {
+    globalAny.designStates[r] = {
+      version: 1,
+      updatedAt: Date.now(),
+      tree: null,
+      canvas: { w: 1920, h: 1080 },
+      widgetName: 'WBP_MyWidget',
+    }
   }
+  return globalAny.designStates[r]
 }
 
 // Initialize MCP server instance once
@@ -32,12 +39,14 @@ if (!globalAny.mcpServer) {
       style: z.record(z.string(), z.any()).optional().describe('Styling properties (e.g., backgroundColor, borderColor, borderRadius, borderWidth, opacity, padding)'),
       slot: z.record(z.string(), z.any()).optional().describe('Layout slot parameters (e.g., position, size, sizeRule, horizontalAlignment, verticalAlignment)'),
       parentId: z.string().optional().describe('Optional ID or name of the parent container widget to nest this widget under.'),
+      room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".'),
     },
-    async ({ type, name, properties = {}, style = {}, slot = {}, parentId }) => {
+    async ({ type, name, properties = {}, style = {}, slot = {}, parentId, room = 'default' }) => {
       try {
-        const addedNode = addWidgetToState(globalAny.designState, type, name, properties, style, slot, parentId)
-        globalAny.designState.version += 1
-        globalAny.designState.updatedAt = Date.now()
+        const state = getDesignState(room)
+        const addedNode = addWidgetToState(state, type, name, properties, style, slot, parentId)
+        state.version += 1
+        state.updatedAt = Date.now()
         return {
           content: [
             {
@@ -59,9 +68,12 @@ if (!globalAny.mcpServer) {
   server.tool(
     'list_widgets',
     'List all widgets currently on the canvas design.',
-    {},
-    async () => {
-      const widgets = listWidgetsInTree(globalAny.designState.tree)
+    {
+      room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".'),
+    },
+    async ({ room = 'default' }) => {
+      const state = getDesignState(room)
+      const widgets = listWidgetsInTree(state.tree)
       const text = widgets.length === 0 ? 'No widgets on canvas.' : JSON.stringify(widgets, null, 2)
       return { content: [{ type: 'text', text }] }
     }
@@ -71,11 +83,14 @@ if (!globalAny.mcpServer) {
   server.tool(
     'clear_canvas',
     'Clear all widgets and reset the canvas design layout.',
-    {},
-    async () => {
-      globalAny.designState.tree = null
-      globalAny.designState.version += 1
-      globalAny.designState.updatedAt = Date.now()
+    {
+      room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".'),
+    },
+    async ({ room = 'default' }) => {
+      const state = getDesignState(room)
+      state.tree = null
+      state.version += 1
+      state.updatedAt = Date.now()
       return { content: [{ type: 'text', text: 'Canvas successfully cleared.' }] }
     }
   )
@@ -86,21 +101,23 @@ if (!globalAny.mcpServer) {
     'Export current design state in .umgbridge.json schema format.',
     {
       filename: z.string().describe('The target output filename (e.g. WBP_MainMenu.umgbridge.json)'),
+      room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".'),
     },
-    async ({ filename }) => {
+    async ({ filename, room = 'default' }) => {
+      const state = getDesignState(room)
       const widgetName = filename.replace(/\.(umgbridge\.)?json$/i, '')
-      globalAny.designState.widgetName = widgetName
-      globalAny.designState.version += 1
-      globalAny.designState.updatedAt = Date.now()
+      state.widgetName = widgetName
+      state.version += 1
+      state.updatedAt = Date.now()
 
       const output = {
         version: '1.0',
         name: widgetName,
         canvas: {
-          width: globalAny.designState.canvas.w,
-          height: globalAny.designState.canvas.h,
+          width: state.canvas.w,
+          height: state.canvas.h,
         },
-        tree: globalAny.designState.tree,
+        tree: state.tree,
       }
 
       return {
