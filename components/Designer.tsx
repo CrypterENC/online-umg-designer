@@ -55,7 +55,6 @@ export default function Designer() {
   }, [state])
 
   const [roomId, setRoomId] = useState<string>('default')
-  const [isVercelBuilding, setIsVercelBuilding] = useState<boolean>(false)
   const [isOwner, setIsOwner] = useState<boolean>(false)
   const [members, setMembers] = useState<any[]>([])
   const [showMembersDropdown, setShowMembersDropdown] = useState<boolean>(false)
@@ -189,25 +188,7 @@ export default function Designer() {
         // If the server has a different version, load it
         if (data.version !== lastSyncedVersion.current) {
           if (data.version < lastSyncedVersion.current) {
-            console.warn(`Server version (${data.version}) is older than client version (${lastSyncedVersion.current}). Server likely recycled. Restoring state...`)
-            try {
-              const pushResp = await fetch(`/api/design?room=${roomId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  tree: stateRef.current.tree,
-                  canvas: stateRef.current.canvas,
-                  widgetName: stateRef.current.widgetName,
-                }),
-              })
-              if (pushResp.ok) {
-                const pushData = await pushResp.json()
-                lastSyncedVersion.current = pushData.version
-                console.log(`Server state successfully restored to version ${pushData.version}`)
-              }
-            } catch (pushErr) {
-              console.error('Failed to restore server state after container recycle:', pushErr)
-            }
+            // Stale serverless instance — ignore, next user push will update it
           } else {
             // ─── Content-aware sync ────────────────────────────────────────────
             // Before dispatching a potentially expensive SET_TREE, check whether
@@ -270,30 +251,6 @@ export default function Designer() {
     }
   }, [roomId])
 
-  // 1b. Vercel Build Status Polling Effect
-  useEffect(() => {
-    let active = true
-    const checkBuildStatus = async () => {
-      try {
-        const resp = await fetch('/api/build-status')
-        if (resp.ok) {
-          const data = await resp.json()
-          if (active && typeof data.isBuilding === 'boolean') {
-            setIsVercelBuilding(data.isBuilding)
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch build status:', err)
-      }
-    }
-
-    checkBuildStatus()
-    const interval = setInterval(checkBuildStatus, 15000) // check every 15 seconds
-    return () => {
-      active = false
-      clearInterval(interval)
-    }
-  }, [])
 
   // 2. Push Effect (send to server when client changes)
   useEffect(() => {
@@ -314,7 +271,8 @@ export default function Designer() {
         })
         if (resp.ok) {
           const data = await resp.json()
-          lastSyncedVersion.current = data.version
+          // ponytail: Math.max — fresh Vercel instance returns low version, never let it drop
+          lastSyncedVersion.current = Math.max(lastSyncedVersion.current, data.version)
         }
       } catch (err) {
         console.error('Failed to push design to server:', err)
@@ -554,18 +512,7 @@ export default function Designer() {
             <span>{syncStatus === 'connected' ? 'LIVE' : syncStatus === 'syncing' ? 'SYNCING' : 'OFFLINE'}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-0.5" style={{
-            background: isVercelBuilding ? 'rgba(232,117,10,0.15)' : 'rgba(255,255,255,0.03)',
-            color: isVercelBuilding ? '#ff983d' : '#8b949e',
-            border: isVercelBuilding ? '1px solid rgba(232,117,10,0.3)' : '1px solid rgba(255,255,255,0.08)',
-          }} title={isVercelBuilding ? "Vercel is building the latest commit." : "Vercel deployments are up to date."}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isVercelBuilding ? 'animate-pulse' : ''}`} style={{
-              background: isVercelBuilding ? '#ff983d' : '#8b949e'
-            }} />
-            <span>{isVercelBuilding ? 'NEXT UPDATE IN PROGRESS' : 'VERCEL: IDLE'}</span>
-          </div>
-
-          <div 
+          <div
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(window.location.href)
