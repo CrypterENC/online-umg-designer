@@ -105,8 +105,8 @@ export function buildWidgetCss(node: WidgetNode): string {
   if (node.type === 'Border') css += `display:flex;width:100%;height:100%;`
   if (node.type === 'SizeBox') {
     css += `display:flex;width:100%;height:100%;`
-    if (p.minDesiredWidth && (p.minDesiredWidth as number) > 0) css += `min-width:${p.minDesiredWidth}px;`
-    if (p.minDesiredHeight && (p.minDesiredHeight as number) > 0) css += `min-height:${p.minDesiredHeight}px;`
+    if (p.minDesiredWidth && (p.minDesiredWidth as number) > 0) css += `min-width:${p.minDesiredWidth}px;width:${p.minDesiredWidth}px;`
+    if (p.minDesiredHeight && (p.minDesiredHeight as number) > 0) css += `min-height:${p.minDesiredHeight}px;height:${p.minDesiredHeight}px;`
     if (p.maxDesiredWidth && (p.maxDesiredWidth as number) > 0) css += `max-width:${p.maxDesiredWidth}px;`
     if (p.maxDesiredHeight && (p.maxDesiredHeight as number) > 0) css += `max-height:${p.maxDesiredHeight}px;`
   }

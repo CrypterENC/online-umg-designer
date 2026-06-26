@@ -23,7 +23,7 @@ export const WMAP: Record<string, WidgetDef> = {
   RetainerBox:       { panel: true,  icon: '⬚', label: 'Retainer Box' },
   NamedSlot:         { panel: true,  icon: '◈', label: 'Named Slot',       defaultProps: { slotName: 'Default' } },
   InvalidationBox:   { panel: true,  icon: '⚡', label: 'Invalidation Box' },
-  Button:            { panel: false, icon: '⬜', label: 'Button',
+  Button:            { panel: true,  icon: '⬜', label: 'Button',
     defaultStyle: { backgroundColor: '#2c1905f5', hoverColor: '#382208f5', pressedColor: '#1a0e02f5', borderColor: '#f28c1a80', borderRadius: 7, borderWidth: 1, padding: [14, 20, 14, 20] as [number,number,number,number] },
     defaultProps: { text: 'Button' } },
   Text:              { panel: false, icon: 'T',  label: 'Text',             defaultProps: { text: 'Text', color: '#faf5ebff', font: { size: 14, weight: 'Regular' } } },
