@@ -57,6 +57,36 @@ export default function Designer() {
   const [isOwner, setIsOwner] = useState<boolean>(false)
   const [members, setMembers] = useState<any[]>([])
   const [showMembersDropdown, setShowMembersDropdown] = useState<boolean>(false)
+  const [dropdownCoords, setDropdownCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+
+  const membersButtonRef = useRef<HTMLButtonElement>(null)
+  const membersDropdownRef = useRef<HTMLDivElement>(null)
+  const handleToggleMembers = () => {
+    if (membersButtonRef.current) {
+      const rect = membersButtonRef.current.getBoundingClientRect()
+      setDropdownCoords({
+        top: rect.bottom,
+        left: rect.left
+      })
+    }
+    setShowMembersDropdown(v => !v)
+  }
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        showMembersDropdown &&
+        membersDropdownRef.current &&
+        !membersDropdownRef.current.contains(e.target as Node) &&
+        membersButtonRef.current &&
+        !membersButtonRef.current.contains(e.target as Node)
+      ) {
+        setShowMembersDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showMembersDropdown])
 
   const memberIdRef = useRef<string>('')
   const memberNameRef = useRef<string>('')
@@ -426,7 +456,8 @@ export default function Designer() {
           {/* Members list dropdown */}
           <div className="relative shrink-0">
             <button
-              onClick={() => setShowMembersDropdown(v => !v)}
+              ref={membersButtonRef}
+              onClick={handleToggleMembers}
               className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-0.5 cursor-pointer hover:bg-[rgba(255,255,255,0.06)]"
               style={{
                 background: 'rgba(255,255,255,0.03)',
@@ -438,61 +469,6 @@ export default function Designer() {
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#40d972' }} />
               <span>👥 {members.length}</span>
             </button>
-
-            {showMembersDropdown && (
-              <div 
-                className="absolute top-8 left-0.5 w-56 py-1.5 rounded-md z-50 flex flex-col gap-1 border shadow-2xl"
-                style={{
-                  background: '#1e2229',
-                  borderColor: 'rgba(255,255,255,0.08)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
-                }}
-                onMouseLeave={() => setShowMembersDropdown(false)}
-              >
-                <div className="px-3 py-1 text-[9px] font-semibold text-[#8b949e] border-b" style={{ borderColor: 'rgba(255,255,255,0.08)', letterSpacing: '0.05em' }}>
-                  ACTIVE MEMBERS
-                </div>
-                <div className="max-h-40 overflow-y-auto flex flex-col">
-                  {members.map(m => {
-                    const isSelf = m.id === memberIdRef.current
-                    return (
-                      <div key={m.id} className="flex items-center justify-between px-3 py-1.5 text-[11px] hover:bg-[rgba(255,255,255,0.02)]">
-                        <div className="flex items-center gap-1.5 truncate mr-2">
-                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: isSelf ? '#40d972' : '#8b949e' }} />
-                          <span className="truncate" style={{ color: isSelf ? '#e6edf3' : '#8b949e' }}>
-                            {m.name} {isSelf && '(You)'}
-                          </span>
-                        </div>
-                        {!isSelf && isOwner && (
-                          <button
-                            onClick={async () => {
-                              if (confirm(`Kick ${m.name} from this room?`)) {
-                                try {
-                                  const resp = await fetch('/api/kick', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ room: roomId, memberId: m.id })
-                                  })
-                                  if (resp.ok) {
-                                    alert(`${m.name} kicked successfully.`);
-                                    setMembers(prev => prev.filter(x => x.id !== m.id))
-                                  }
-                                } catch (err) {
-                                  console.error(err)
-                                }
-                              }
-                            }}
-                            className="text-[9px] px-1.5 py-0.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 cursor-pointer transition-colors"
-                          >
-                            Kick
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -579,6 +555,65 @@ export default function Designer() {
         <input ref={fileInputRef} type="file" accept=".json" className="hidden"
           onChange={e => { if (e.target.files?.[0]) { handleImport(e.target.files[0]); e.target.value = '' } }} />
       </header>
+
+      {/* ── Members dropdown ─────────────────────────────────── */}
+      {showMembersDropdown && (
+        <div 
+          ref={membersDropdownRef}
+          className="fixed w-56 py-1.5 rounded-md z-50 flex flex-col gap-1 border shadow-2xl"
+          style={{
+            top: dropdownCoords.top + 6,
+            left: Math.min(dropdownCoords.left, typeof window !== 'undefined' ? window.innerWidth - 240 : dropdownCoords.left),
+            background: '#1e2229',
+            borderColor: 'rgba(255,255,255,0.08)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+          }}
+        >
+          <div className="px-3 py-1 text-[9px] font-semibold text-[#8b949e] border-b" style={{ borderColor: 'rgba(255,255,255,0.08)', letterSpacing: '0.05em' }}>
+            ACTIVE MEMBERS
+          </div>
+          <div className="max-h-40 overflow-y-auto flex flex-col">
+            {members.map(m => {
+              const isSelf = m.id === memberIdRef.current
+              return (
+                <div key={m.id} className="flex items-center justify-between px-3 py-1.5 text-[11px] hover:bg-[rgba(255,255,255,0.02)]">
+                  <div className="flex items-center gap-1.5 truncate mr-2">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: isSelf ? '#40d972' : '#8b949e' }} />
+                    <span className="truncate" style={{ color: isSelf ? '#e6edf3' : '#8b949e' }}>
+                      {m.name} {isSelf && '(You)'}
+                    </span>
+                  </div>
+                  {!isSelf && isOwner && (
+                    <button
+                      onClick={async () => {
+                        if (confirm(`Kick ${m.name} from this room?`)) {
+                          try {
+                            const resp = await fetch('/api/kick', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ room: roomId, memberId: m.id })
+                            })
+                            if (resp.ok) {
+                              alert(`${m.name} kicked successfully.`);
+                              setMembers(prev => prev.filter(x => x.id !== m.id))
+                            }
+                          } catch (err) {
+                            console.error(err)
+                          }
+                        }
+                      }}
+                      className="text-[9px] px-1.5 py-0.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 cursor-pointer transition-colors"
+                    >
+                      Kick
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Theme picker ─────────────────────────────────────── */}
       {showThemes && (
         <ThemePicker
