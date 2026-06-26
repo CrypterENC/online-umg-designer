@@ -1,5 +1,7 @@
 import { WidgetNode, CanvasSize } from './types'
 import { importNode } from './treeOps'
+import { uid } from './uid'
+import { WMAP } from './widgetDefs'
 
 export type UmgBridgeDoc = {
   version: string
@@ -150,4 +152,186 @@ export function parseUmgBridgeJSON(text: string): { tree: WidgetNode | null; can
   }
   const tree = doc.tree ? importNode(doc.tree as Record<string, unknown>) : null
   return { tree, canvas, name: doc.name || 'WBP_MyWidget' }
+}
+
+interface ParsedWidget {
+  type: string
+  name: string
+  text?: string
+  pos?: { x: number; y: number }
+  size?: { x: number; y: number }
+  depth: number
+}
+
+function parseHierarchyLine(line: string): ParsedWidget[] {
+  const match = line.match(/^[^\[]*/)
+  const prefix = match ? match[0] : ""
+  const sanitizedPrefix = prefix.replace(/[^ \t]/g, " ")
+  const indentLength = sanitizedPrefix.length
+
+  const typeMatch = line.match(/\[([a-zA-Z0-9_]+)\]/)
+  if (!typeMatch) return []
+  const type = typeMatch[1]
+
+  const restOfLine = line.substring(line.indexOf(']') + 1).trim()
+
+  // Parse geometry: (x, y, w x h) or (w x h)
+  const geomMatch = restOfLine.match(/\((\d+),\s*(\d+),\s*(\d+)\s*[x×*]\s*(\d+)\)/)
+  let pos: { x: number; y: number } | undefined
+  let size: { x: number; y: number } | undefined
+  if (geomMatch) {
+    pos = { x: parseInt(geomMatch[1], 10), y: parseInt(geomMatch[2], 10) }
+    size = { x: parseInt(geomMatch[3], 10), y: parseInt(geomMatch[4], 10) }
+  } else {
+    const sizeOnlyMatch = restOfLine.match(/\((\d+)\s*[x×*]\s*(\d+)\)/)
+    if (sizeOnlyMatch) {
+      size = { x: parseInt(sizeOnlyMatch[1], 10), y: parseInt(sizeOnlyMatch[2], 10) }
+    }
+  }
+
+  // Check for quote for text content
+  let text: string | undefined
+  const quoteMatch = restOfLine.match(/"([^"]*)"/)
+  if (quoteMatch) {
+    text = quoteMatch[1]
+  }
+
+  // Parse name and multipliers
+  const cleanRest = restOfLine.replace(/\([^)]*\)/g, '').replace(/"[^"]*"/g, '').trim()
+  
+  // Check range: e.g. PlayerRow1 through PlayerRow5
+  const rangeMatch = cleanRest.match(/^([a-zA-Z0-9_-]+?)(0*\d+)\s+through\s+\1(0*\d+)/i)
+  // Check count: e.g. OpenSlot x 3
+  const countMatch = cleanRest.match(/^([a-zA-Z0-9_-]+?)\s*[x×\*]\s*(\d+)/i)
+
+  if (rangeMatch) {
+    const base = rangeMatch[1]
+    const start = parseInt(rangeMatch[2], 10)
+    const end = parseInt(rangeMatch[3], 10)
+    const widgets: ParsedWidget[] = []
+    const step = start <= end ? 1 : -1
+    for (let i = start; i !== end + step; i += step) {
+      widgets.push({
+        type,
+        name: `${base}${i}`,
+        text,
+        pos,
+        size,
+        depth: indentLength
+      })
+    }
+    return widgets
+  }
+
+  if (countMatch) {
+    const base = countMatch[1]
+    const count = parseInt(countMatch[2], 10)
+    const widgets: ParsedWidget[] = []
+    for (let i = 1; i <= count; i++) {
+      widgets.push({
+        type,
+        name: `${base}${i}`,
+        text,
+        pos,
+        size,
+        depth: indentLength
+      })
+    }
+    return widgets
+  }
+
+  // Single widget
+  const nameMatch = cleanRest.match(/^([a-zA-Z0-9_-]+)/)
+  let name = nameMatch ? nameMatch[1] : ''
+  if (!name) {
+    if (text) {
+      const cleanText = text.replace(/[^a-zA-Z0-9_]/g, '')
+      name = cleanText ? `${type}_${cleanText}` : `${type}_Widget`
+    } else {
+      name = `${type}_Widget`
+    }
+  }
+
+  return [{
+    type,
+    name,
+    text,
+    pos,
+    size,
+    depth: indentLength
+  }]
+}
+
+const WIDGET_DEFAULT_SIZES: Record<string, { x: number; y: number }> = {
+  Text: { x: 200, y: 40 }, Button: { x: 200, y: 60 }, TextInput: { x: 200, y: 40 },
+  Image: { x: 200, y: 150 }, ProgressBar: { x: 200, y: 20 }, Slider: { x: 200, y: 30 }, CheckBox: { x: 30, y: 30 },
+}
+
+function createWidgetFromParsed(w: ParsedWidget): WidgetNode {
+  const def = WMAP[w.type] || {}
+  const node: WidgetNode = {
+    id: uid(),
+    type: w.type,
+    name: w.name,
+    slot: WIDGET_DEFAULT_SIZES[w.type] ? { size: WIDGET_DEFAULT_SIZES[w.type] } : {},
+    style: { ...(def.defaultStyle || {}) } as WidgetNode['style'],
+    properties: { ...(def.defaultProps || {}) } as WidgetNode['properties'],
+    children: [],
+  }
+
+  if (w.text) {
+    node.properties.text = w.text
+  }
+
+  if (w.pos || w.size) {
+    node.slot = {
+      ...node.slot,
+      ...(w.pos ? { position: w.pos } : {}),
+      ...(w.size ? { size: w.size } : {}),
+      anchors: { min: [0, 0] as [number, number], max: [0, 0] as [number, number] }
+    }
+  }
+
+  return node
+}
+
+interface StackEntry {
+  node: WidgetNode
+  indent: number
+}
+
+export function parseUmgHierarchyText(text: string): WidgetNode | null {
+  const lines = text.split('\n')
+  const widgets: ParsedWidget[] = []
+
+  for (const line of lines) {
+    if (!line.trim() || !line.includes('[')) continue
+    widgets.push(...parseHierarchyLine(line))
+  }
+
+  if (widgets.length === 0) return null
+
+  const rootNode = createWidgetFromParsed(widgets[0])
+  const stack: StackEntry[] = [{ node: rootNode, indent: widgets[0].depth }]
+
+  for (let i = 1; i < widgets.length; i++) {
+    const w = widgets[i]
+    const node = createWidgetFromParsed(w)
+
+    // Find the parent
+    while (stack.length > 1 && stack[stack.length - 1].indent >= w.depth) {
+      stack.pop()
+    }
+
+    const parent = stack[stack.length - 1]
+    parent.node.children.push(node)
+
+    // Push if it's a panel
+    const def = WMAP[node.type]
+    if (def?.panel) {
+      stack.push({ node, indent: w.depth })
+    }
+  }
+
+  return rootNode
 }

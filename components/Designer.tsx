@@ -5,7 +5,7 @@ import { WidgetNode } from '@/lib/types'
 import { WMAP, SINGLE_CHILD_PANELS } from '@/lib/widgetDefs'
 import { uid } from '@/lib/uid'
 import { collectPanelIds } from '@/lib/treeOps'
-import { exportJSON, parseUmgBridgeJSON } from '@/lib/exportImport'
+import { exportJSON, parseUmgBridgeJSON, parseUmgHierarchyText } from '@/lib/exportImport'
 import Canvas from './Canvas'
 import Palette from './Palette'
 import Hierarchy from './Hierarchy'
@@ -134,6 +134,8 @@ export default function Designer() {
   const [showPreview, setShowPreview] = useState(false)
   const [showThemes, setShowThemes] = useState(false)
   const themesButtonRef = useRef<HTMLButtonElement>(null)
+  const [showTreeParser, setShowTreeParser] = useState(false)
+  const [treeParserText, setTreeParserText] = useState('')
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const pushSuggestion = useCallback((s: Omit<Suggestion, 'id'>) => {
@@ -477,6 +479,25 @@ export default function Designer() {
     })
   }, [])
 
+  const handleImportTreeText = () => {
+    if (!treeParserText.trim()) return
+    try {
+      const tree = parseUmgHierarchyText(treeParserText)
+      if (!tree) {
+        alert('Could not parse any widgets. Check format!')
+        return
+      }
+      dispatch({ type: 'SET_TREE', tree })
+      const panelIds = collectPanelIds(tree, Object.fromEntries(Object.entries(WMAP).filter(([,v]) => v.panel).map(([k]) => [k, true])))
+      dispatch({ type: 'EXPAND_ALL_PANELS', ids: panelIds })
+      dispatch({ type: 'SELECT', id: null })
+      setShowTreeParser(false)
+      setTreeParserText('')
+    } catch (e) {
+      alert('Error parsing tree: ' + (e as Error).message)
+    }
+  }
+
   const zoomIn  = () => { const n = ZOOM_STEPS.find(z => z > state.zoom); if (n) dispatch({ type: 'SET_ZOOM', zoom: n }) }
   const zoomOut = () => { const p = [...ZOOM_STEPS].reverse().find(z => z < state.zoom); if (p) dispatch({ type: 'SET_ZOOM', zoom: p }) }
   const zoomFit = useCallback(() => {
@@ -626,7 +647,8 @@ export default function Designer() {
           <button onClick={() => setShowPreview(true)} className="tbtn" title="Preview (P)" style={{ borderColor: showPreview ? '#e8750a' : undefined, color: showPreview ? '#e8750a' : undefined }}>Preview</button>
           <button onClick={() => window.open('/docs', '_blank')} className="tbtn" title="Documentation">?</button>
           <button onClick={() => { if (!state.tree || confirm('Clear canvas?')) dispatch({ type: 'CLEAR' }) }} className="tbtn">Clear</button>
-          <button onClick={() => fileInputRef.current?.click()} className="tbtn">Import</button>
+          <button onClick={() => fileInputRef.current?.click()} className="tbtn">Import JSON</button>
+          <button onClick={() => setShowTreeParser(true)} className="tbtn">Import Tree Text</button>
           <button onClick={() => exportJSON(state.tree, state.canvas, state.widgetName)} className="tbtn-primary">
             Export JSON
           </button>
@@ -767,6 +789,93 @@ export default function Designer() {
           })() : (
             <div style={{ color: '#484f58', fontSize: 13 }}>No widgets on canvas</div>
           )}
+        </div>
+      )}
+
+      {/* ── Tree Parser Modal overlay ─────────────────────────── */}
+      {showTreeParser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ background: 'rgba(7,9,13,0.85)' }}
+        >
+          <div
+            className="flex flex-col rounded-lg overflow-hidden border shadow-2xl"
+            style={{
+              width: 600,
+              height: 520,
+              background: '#1e2229',
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>Import Widget Tree Text</div>
+              <button 
+                onClick={() => { setShowTreeParser(false); setTreeParserText('') }} 
+                className="text-gray-500 hover:text-white"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              <div style={{ fontSize: 11, color: '#8b949e', lineHeight: 1.4 }}>
+                Paste an indented hierarchy text representation of your widget tree (e.g. copied from a blueprint or text design). The parser supports <strong>multipliers</strong> (<code>x 3</code> or <code>through</code>) and absolute <strong>positions/sizes</strong> (e.g. <code>(10, 20, 200x60)</code> or <code>"text label"</code>).
+              </div>
+              
+              {/* Examples */}
+              <div style={{ fontSize: 9, color: '#555', background: 'rgba(0,0,0,0.15)', padding: '6px 8px', borderRadius: 4, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+{`Example:
+[CanvasPanel] Canvas
+  ├─ [Border] TopBar (0, 0, 1920×72)
+  │   └─ [HorizontalBox] Row
+  │       ├─ [Border] MainMenu
+  │       │   └─ [Button] Btn "Menu"
+  │       ├─ [Border] TitleBox
+  │       │   └─ [Text] "LOBBY"
+  │       └─ [Border] Status
+  │           └─ [Text] "3/8"
+  ├─ [Border] OpenSlot × 3`}
+              </div>
+
+              {/* Text Area */}
+              <textarea
+                value={treeParserText}
+                onChange={e => setTreeParserText(e.target.value)}
+                placeholder={`Paste your widget tree here...\n[CanvasPanel] WBP_Root\n  ├─ [Border] Panel (10, 10, 400x300)\n  │   └─ [Text] "Label"`}
+                className="flex-1 p-3 rounded border text-xs"
+                style={{
+                  background: '#0d1117',
+                  color: '#e6edf3',
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  fontFamily: 'monospace',
+                  resize: 'none',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-3 shrink-0 flex items-center justify-end gap-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: '#16191f' }}>
+              <button 
+                onClick={() => { setShowTreeParser(false); setTreeParserText('') }} 
+                className="tbtn"
+                style={{ height: 28, fontSize: 11 }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleImportTreeText} 
+                className="tbtn-primary"
+                style={{ height: 28, fontSize: 11 }}
+                disabled={!treeParserText.trim()}
+              >
+                Generate Tree
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
