@@ -1,0 +1,407 @@
+'use client'
+import React, { useReducer, useCallback, useEffect, useRef, useState } from 'react'
+import { reducer, initialState } from '@/lib/store'
+import { WidgetNode } from '@/lib/types'
+import { WMAP } from '@/lib/widgetDefs'
+import { uid } from '@/lib/uid'
+import { collectPanelIds } from '@/lib/treeOps'
+import { exportJSON, parseUmgBridgeJSON } from '@/lib/exportImport'
+import Canvas from './Canvas'
+import Palette from './Palette'
+import Hierarchy from './Hierarchy'
+import PropertiesPanel from './PropertiesPanel'
+import WidgetRenderer from './WidgetRenderer'
+import ThemePicker from './ThemePicker'
+import { findNode } from '@/lib/treeOps'
+
+const ZOOM_STEPS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2]
+const CANVAS_PRESETS: Record<string, { w: number; h: number }> = {
+  '1920×1080': { w: 1920, h: 1080 },
+  '2560×1440': { w: 2560, h: 1440 },
+  '1280×720':  { w: 1280, h: 720  },
+  '3840×2160': { w: 3840, h: 2160 },
+}
+const DEFAULT_CANVAS_PANEL_SLOT = {
+  position: { x: 100, y: 100 },
+  size: { x: 200, y: 60 },
+  anchors: { min: [0, 0] as [number, number], max: [0, 0] as [number, number] },
+}
+
+function makeNode(type: string): WidgetNode {
+  const def = WMAP[type] || {}
+  const sizeMap: Record<string, { x: number; y: number }> = {
+    Text: { x: 200, y: 40 }, Button: { x: 200, y: 60 }, TextInput: { x: 200, y: 40 },
+    Image: { x: 200, y: 150 }, ProgressBar: { x: 200, y: 20 }, Slider: { x: 200, y: 30 }, CheckBox: { x: 30, y: 30 },
+  }
+  return {
+    id: uid(), type, name: type,
+    slot: sizeMap[type] ? { size: sizeMap[type] } : {},
+    style: { ...(def.defaultStyle || {}) } as WidgetNode['style'],
+    properties: { ...(def.defaultProps || {}) } as WidgetNode['properties'],
+    children: [],
+  }
+}
+
+const SEP = <div className="w-px h-4 shrink-0" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+export default function Designer() {
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [leftTab, setLeftTab] = useState<'palette' | 'hierarchy'>('palette')
+  const [tool, setTool] = useState<'select' | 'pan'>('select')
+  const [showPreview, setShowPreview] = useState(false)
+  const [showThemes, setShowThemes] = useState(false)
+  const themesButtonRef = useRef<HTMLButtonElement>(null)
+
+  const selectedNode = state.tree && state.sel ? findNode(state.tree, state.sel) : null
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); dispatch({ type: 'UNDO' }) }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); dispatch({ type: 'REDO' }) }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') { e.preventDefault(); if (state.sel) dispatch({ type: 'DUPLICATE_NODE', id: state.sel }) }
+      if (e.key === 'Delete' || e.key === 'Backspace') { if (state.sel) dispatch({ type: 'DELETE_NODE', id: state.sel }) }
+      if (e.key === 'v' || e.key === 'V') setTool('select')
+      if (e.key === 'h' || e.key === 'H') setTool('pan')
+      if (e.key === 'Escape') setShowPreview(false)
+      if (e.key === 'p' || e.key === 'P') setShowPreview(v => !v)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [state.sel])
+
+  const handleAddWidget = useCallback((type: string) => {
+    const node = makeNode(type)
+    const def = WMAP[type]
+    const targetSel = state.sel || state.tree?.id
+    if (!state.tree) {
+      dispatch({ type: 'SET_TREE', tree: node })
+      if (def?.panel) dispatch({ type: 'EXPAND_ALL_PANELS', ids: [node.id] })
+      dispatch({ type: 'SELECT', id: node.id })
+    } else if (targetSel) {
+      const parentNode = findNode(state.tree, targetSel)
+      const parentDef = parentNode ? WMAP[parentNode.type] : null
+      if (parentDef?.panel) {
+        if (parentNode?.type === 'CanvasPanel') node.slot = { ...DEFAULT_CANVAS_PANEL_SLOT }
+        dispatch({ type: 'ADD_CHILD', parentId: targetSel, node })
+        if (!state.expanded.has(targetSel)) dispatch({ type: 'TOGGLE_EXPAND', id: targetSel })
+      } else {
+        if (state.tree.type === 'CanvasPanel') node.slot = { ...DEFAULT_CANVAS_PANEL_SLOT }
+        dispatch({ type: 'ADD_CHILD', parentId: state.tree.id, node })
+      }
+    } else {
+      if (state.tree.type === 'CanvasPanel') node.slot = { ...DEFAULT_CANVAS_PANEL_SLOT }
+      dispatch({ type: 'ADD_CHILD', parentId: state.tree.id, node })
+    }
+  }, [state.tree, state.sel, state.expanded])
+
+  const handleDrop = useCallback((targetId: string, widgetType: string, draggedId?: string) => {
+    if (draggedId) return
+    const node = makeNode(widgetType)
+    dispatch({ type: 'ADD_CHILD', parentId: targetId, node })
+    if (!state.expanded.has(targetId)) dispatch({ type: 'TOGGLE_EXPAND', id: targetId })
+  }, [state.expanded])
+
+  const handleRootDrop = useCallback((widgetType: string) => {
+    if (state.tree) return
+    const node = makeNode(widgetType)
+    dispatch({ type: 'SET_TREE', tree: node })
+    dispatch({ type: 'SELECT', id: node.id })
+  }, [state.tree])
+
+  const handleMove = useCallback((id: string, x: number, y: number) => {
+    if (!state.tree) return
+    dispatch({ type: 'UPDATE_NODE', id, patch: { slot: { ...findNode(state.tree, id)?.slot, position: { x, y } } } })
+  }, [state.tree])
+
+  const handleResize = useCallback((id: string, pos: { x: number; y: number }, size: { x: number; y: number }) => {
+    if (!state.tree) return
+    const node = findNode(state.tree, id)
+    dispatch({ type: 'UPDATE_NODE', id, patch: { slot: { ...node?.slot, position: pos, size } } })
+  }, [state.tree])
+
+  const handleImport = useCallback((file: File) => {
+    file.text().then(text => {
+      try {
+        const { tree, canvas, name } = parseUmgBridgeJSON(text)
+        dispatch({ type: 'SET_TREE', tree })
+        dispatch({ type: 'SET_CANVAS', canvas })
+        dispatch({ type: 'SET_WIDGET_NAME', name })
+        if (tree) {
+          const panelIds = collectPanelIds(tree, Object.fromEntries(Object.entries(WMAP).filter(([,v]) => v.panel).map(([k]) => [k, true])))
+          dispatch({ type: 'EXPAND_ALL_PANELS', ids: panelIds })
+        }
+        dispatch({ type: 'SELECT', id: null })
+      } catch (e) { alert('Failed to parse JSON: ' + (e as Error).message) }
+    })
+  }, [])
+
+  const zoomIn  = () => { const n = ZOOM_STEPS.find(z => z > state.zoom); if (n) dispatch({ type: 'SET_ZOOM', zoom: n }) }
+  const zoomOut = () => { const p = [...ZOOM_STEPS].reverse().find(z => z < state.zoom); if (p) dispatch({ type: 'SET_ZOOM', zoom: p }) }
+  const zoomFit = useCallback(() => {
+    const availW = window.innerWidth - 376   // sidebar 176 + props 200
+    const availH = window.innerHeight - 36   // toolbar
+    const fit = Math.min(availW / state.canvas.w, availH / state.canvas.h) * 0.88
+    dispatch({ type: 'SET_ZOOM', zoom: fit })
+  }, [state.canvas.w, state.canvas.h])
+
+  // Auto-fit on mount and whenever the canvas preset changes
+  useEffect(() => { zoomFit() }, [zoomFit])
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#0d1117', color: '#e6edf3' }}>
+
+      {/* ── Toolbar ──────────────────────────────────────────── */}
+      <header
+        className="flex items-center gap-2 px-3 shrink-0"
+        style={{ height: 42, background: '#1e2229', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <span className="section-label mr-2" style={{ letterSpacing: '0.12em' }}>UMG Designer</span>
+        {SEP}
+
+        {/* Tool toggle */}
+        <button
+          onClick={() => setTool('select')}
+          title="Select (V)"
+          className="tbtn"
+          style={{ width: 28, padding: 0, borderColor: tool === 'select' ? '#e8750a' : undefined, color: tool === 'select' ? '#e8750a' : undefined }}
+        >▲</button>
+        <button
+          onClick={() => setTool('pan')}
+          title="Pan (H · Space+drag)"
+          className="tbtn"
+          style={{ width: 28, padding: 0, borderColor: tool === 'pan' ? '#e8750a' : undefined, color: tool === 'pan' ? '#e8750a' : undefined }}
+        >✥</button>
+        {SEP}
+
+        <select
+          className="input-field"
+          style={{ width: 112 }}
+          value={`${state.canvas.w}×${state.canvas.h}`}
+          onChange={e => { const p = CANVAS_PRESETS[e.target.value]; if (p) dispatch({ type: 'SET_CANVAS', canvas: p }) }}
+        >
+          {Object.keys(CANVAS_PRESETS).map(k => <option key={k} value={k}>{k}</option>)}
+        </select>
+
+        <input
+          type="text"
+          value={state.widgetName}
+          onChange={e => dispatch({ type: 'SET_WIDGET_NAME', name: e.target.value })}
+          className="input-field"
+          style={{ width: 128 }}
+          placeholder="Widget name…"
+        />
+
+        <div className="flex-1" />
+
+        <button onClick={() => dispatch({ type: 'UNDO' })} disabled={state.histIndex <= 0} title="Undo (Ctrl+Z)" className="tbtn">↩</button>
+        <button onClick={() => dispatch({ type: 'REDO' })} disabled={state.histIndex >= state.history.length - 1} title="Redo (Ctrl+Y)" className="tbtn">↪</button>
+
+        {SEP}
+
+        <button onClick={zoomFit} className="tbtn" title="Fit to window">Fit</button>
+        <button onClick={zoomOut} className="tbtn" style={{ width: 24, padding: 0 }}>−</button>
+        <select
+          value={state.zoom}
+          onChange={e => dispatch({ type: 'SET_ZOOM', zoom: parseFloat(e.target.value) })}
+          className="input-field"
+          style={{ width: 56, textAlign: 'center' }}
+        >
+          {ZOOM_STEPS.map(z => <option key={z} value={z}>{Math.round(z * 100)}%</option>)}
+        </select>
+        <button onClick={zoomIn} className="tbtn" style={{ width: 24, padding: 0 }}>+</button>
+
+        {SEP}
+
+        <button ref={themesButtonRef} onClick={() => setShowThemes(v => !v)} className="tbtn" title="Color Themes" style={{ borderColor: showThemes ? '#e8750a' : undefined, color: showThemes ? '#e8750a' : undefined }}>Themes</button>
+        <button onClick={() => setShowPreview(true)} className="tbtn" title="Preview (P)" style={{ borderColor: showPreview ? '#e8750a' : undefined, color: showPreview ? '#e8750a' : undefined }}>Preview</button>
+        <button onClick={() => window.open('/docs', '_blank')} className="tbtn" title="Documentation">?</button>
+        <button onClick={() => { if (!state.tree || confirm('Clear canvas?')) dispatch({ type: 'CLEAR' }) }} className="tbtn">Clear</button>
+        <button onClick={() => fileInputRef.current?.click()} className="tbtn">Import</button>
+        <button onClick={() => exportJSON(state.tree, state.canvas, state.widgetName)} className="tbtn-primary">
+          Export JSON
+        </button>
+        <input ref={fileInputRef} type="file" accept=".json" className="hidden"
+          onChange={e => { if (e.target.files?.[0]) { handleImport(e.target.files[0]); e.target.value = '' } }} />
+      </header>
+
+      {/* ── Theme picker ─────────────────────────────────────── */}
+      {showThemes && (
+        <ThemePicker
+          anchorRef={themesButtonRef}
+          selectedNode={selectedNode}
+          tree={state.tree}
+          onApplyToWidget={node => {
+            dispatch({ type: 'UPDATE_NODE', id: node.id, patch: { style: node.style, properties: node.properties } })
+            setShowThemes(false)
+          }}
+          onApplyToTree={newTree => {
+            dispatch({ type: 'SET_TREE', tree: newTree })
+            dispatch({ type: 'PUSH_HISTORY', tree: newTree })
+            setShowThemes(false)
+          }}
+          onClose={() => setShowThemes(false)}
+        />
+      )}
+
+      {/* ── Preview overlay ──────────────────────────────────── */}
+      {showPreview && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center"
+          style={{ background: 'rgba(7,9,13,0.96)' }}
+          onClick={() => setShowPreview(false)}
+        >
+          {/* Toolbar strip */}
+          <div
+            className="flex items-center gap-3 mb-4 px-4"
+            style={{ height: 36, background: '#1e2229', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, flexShrink: 0 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <span style={{ fontSize: 11, color: '#484f58', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Preview</span>
+            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+            <span style={{ fontSize: 11, color: '#8b949e', fontFamily: 'monospace' }}>{state.canvas.w} × {state.canvas.h}</span>
+            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.08)' }} />
+            <span style={{ fontSize: 10, color: '#484f58' }}>Esc or click outside to close</span>
+          </div>
+
+          {/* Widget canvas */}
+          {state.tree ? (() => {
+            const scale = Math.min(
+              (window.innerWidth  - 80) / state.canvas.w,
+              (window.innerHeight - 140) / state.canvas.h,
+              1,
+            )
+            return (
+              <div
+                style={{
+                  width: state.canvas.w * scale,
+                  height: state.canvas.h * scale,
+                  boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 24px 80px rgba(0,0,0,0.8)',
+                  position: 'relative',
+                  flexShrink: 0,
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div style={{ width: state.canvas.w, height: state.canvas.h, transformOrigin: 'top left', transform: `scale(${scale})`, overflow: 'hidden', position: 'absolute', top: 0, left: 0 }}>
+                  <WidgetRenderer
+                    node={state.tree}
+                    parentType="__root__"
+                    selectedId={null}
+                    onSelect={() => {}}
+                    onDrop={() => {}}
+                    zoom={1}
+                    interactive
+                  />
+                </div>
+              </div>
+            )
+          })() : (
+            <div style={{ color: '#484f58', fontSize: 13 }}>No widgets on canvas</div>
+          )}
+        </div>
+      )}
+
+      {/* ── Main layout ──────────────────────────────────────── */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Left panel */}
+        <aside
+          className="shrink-0 flex flex-col"
+          style={{ width: 240, borderRight: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          {/* Tab strip */}
+          <div className="flex shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            {(['palette', 'hierarchy'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setLeftTab(tab)}
+                style={{
+                  flex: 1,
+                  height: 32,
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: leftTab === tab ? '2px solid #e8750a' : '2px solid transparent',
+                  color: leftTab === tab ? '#e6edf3' : '#484f58',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  transition: 'color 120ms, border-color 120ms',
+                }}
+                onMouseEnter={e => { if (leftTab !== tab) (e.target as HTMLButtonElement).style.color = '#8b949e' }}
+                onMouseLeave={e => { if (leftTab !== tab) (e.target as HTMLButtonElement).style.color = '#484f58' }}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            {leftTab === 'palette'
+              ? <Palette onAddWidget={handleAddWidget} />
+              : <Hierarchy
+                  tree={state.tree}
+                  selectedId={state.sel}
+                  expanded={state.expanded}
+                  onSelect={id => dispatch({ type: 'SELECT', id })}
+                  onToggleExpand={id => dispatch({ type: 'TOGGLE_EXPAND', id })}
+                  onDelete={id => dispatch({ type: 'DELETE_NODE', id })}
+                  onMoveUp={id => dispatch({ type: 'MOVE_NODE', id, direction: 'up' })}
+                  onMoveDown={id => dispatch({ type: 'MOVE_NODE', id, direction: 'down' })}
+                  onDuplicate={id => dispatch({ type: 'DUPLICATE_NODE', id })}
+                  onToggleVisible={id => {
+                    const n = state.tree && findNode(state.tree, id)
+                    if (n) dispatch({ type: 'UPDATE_NODE', id, patch: { editorHidden: !n.editorHidden } })
+                  }}
+                  onToggleLock={id => {
+                    const n = state.tree && findNode(state.tree, id)
+                    if (n) dispatch({ type: 'UPDATE_NODE', id, patch: { editorLocked: !n.editorLocked } })
+                  }}
+                />
+            }
+          </div>
+        </aside>
+
+        {/* Canvas */}
+        <Canvas
+          tree={state.tree}
+          selectedId={state.sel}
+          canvas={state.canvas}
+          zoom={state.zoom}
+          panMode={tool === 'pan'}
+          onSelect={id => dispatch({ type: 'SELECT', id: id ?? null })}
+          onDrop={handleDrop}
+          onMove={handleMove}
+          onResize={handleResize}
+          onRootDrop={handleRootDrop}
+          onWheelZoom={dir => dir === 'in' ? zoomIn() : zoomOut()}
+        />
+
+        {/* Right panel */}
+        <aside
+          className="shrink-0 flex flex-col"
+          style={{ width: 280, borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div
+            className="flex items-center justify-between px-3 shrink-0"
+            style={{ height: 32, borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <span className="section-label">Properties</span>
+            {selectedNode && (
+              <span style={{ fontSize: 10, color: '#e8750a', fontFamily: 'monospace' }}>{selectedNode.type}</span>
+            )}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <PropertiesPanel
+              node={selectedNode ?? null}
+              onChange={(id, patch) => dispatch({ type: 'UPDATE_NODE', id, patch })}
+            />
+          </div>
+        </aside>
+      </div>
+
+    </div>
+  )
+}

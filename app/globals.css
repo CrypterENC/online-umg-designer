@@ -1,0 +1,157 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Toolbar button ─────────────────────────── */
+.tbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 4px;
+  color: #8b949e;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms, background 120ms;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tbtn:hover  { border-color: rgba(255,255,255,0.22); color: #e6edf3; background: rgba(255,255,255,0.04); }
+.tbtn:active { opacity: 0.7; }
+.tbtn:disabled { opacity: 0.22; cursor: not-allowed; }
+
+/* ── Primary action button ──────────────────── */
+.tbtn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  background: #e8750a;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.tbtn-primary:hover  { background: #d4690a; }
+.tbtn-primary:active { background: #bf5e09; }
+
+/* ── Text input ─────────────────────────────── */
+.input-field {
+  height: 24px;
+  padding: 0 8px;
+  background: #161b22;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 4px;
+  color: #e6edf3;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 120ms;
+}
+.input-field::placeholder { color: #484f58; }
+.input-field:focus { border-color: #e8750a; }
+
+/* ── Property row input (denser) ────────────── */
+.prop-input {
+  height: 22px;
+  padding: 0 6px;
+  background: #0d1117;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px;
+  color: #e6edf3;
+  font-size: 11px;
+  outline: none;
+  transition: border-color 120ms;
+  width: 100%;
+}
+.prop-input::placeholder { color: #484f58; }
+.prop-input:focus { border-color: #e8750a; box-shadow: 0 0 0 2px rgba(232,117,10,0.15); }
+
+/* ── Section label ──────────────────────────── */
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #484f58;
+}
+
+/* ── Hierarchy action button ────────────────── */
+.hbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  width: 28px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 3px;
+  color: #8b949e;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms;
+  flex-shrink: 0;
+}
+.hbtn:hover    { border-color: rgba(255,255,255,0.18); color: #e6edf3; }
+.hbtn:active   { opacity: 0.7; }
+.hbtn:disabled { opacity: 0.20; cursor: not-allowed; }
+.hbtn-danger   { color: #8b949e; }
+.hbtn-danger:hover { border-color: rgba(248,81,73,0.50); color: #f85149; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Widget type-tag on hover/select ────── */
+.widget-host { position: relative; }
+.widget-host:hover .widget-tag,
+.widget-host.is-selected .widget-tag { display: block; }
+.widget-tag {
+  display: none;
+  position: absolute;
+  top: -18px; left: 0;
+  background: #e8750a;
+  color: #fff;
+  font-size: 9px; font-weight: 600;
+  padding: 2px 6px;
+  z-index: 200;
+  white-space: nowrap;
+  pointer-events: none;
+  letter-spacing: 0.04em;
+  border-radius: 2px 2px 0 0;
+}
+
+/* ── Prop section header hover ───────────── */
+.prop-sec-hdr { transition: color 100ms; }
+.prop-sec-hdr:hover { color: #8b949e !important; }
+
+/* ── Scrollbars ──────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333843; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #454d5c; }
+
+/* ── Preview animation keyframes ─────────── */
+@keyframes umg-fade       { 0%,100%{opacity:0}               50%{opacity:1} }
+@keyframes umg-pulse      { 0%,100%{transform:scale(1)}      50%{transform:scale(1.06)} }
+@keyframes umg-slide-up   { from{transform:translateY(24px);opacity:0} to{transform:none;opacity:1} }
+@keyframes umg-slide-left { from{transform:translateX(24px);opacity:0} to{transform:none;opacity:1} }
+@keyframes umg-scale      { 0%,100%{transform:scale(0.82);opacity:0} 15%,85%{opacity:1} 50%{transform:scale(1)} }
+@keyframes umg-bounce     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
