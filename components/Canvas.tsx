@@ -18,6 +18,110 @@ interface Props {
   onWheelZoom: (dir: 'in' | 'out') => void
 }
 
+const RULER_SIZE = 20
+
+function HorizontalRuler({ width, zoom }: { width: number; zoom: number }) {
+  let tickInterval = 10
+  let labelInterval = 100
+
+  if (zoom < 0.25) {
+    tickInterval = 100
+    labelInterval = 500
+  } else if (zoom < 0.5) {
+    tickInterval = 50
+    labelInterval = 200
+  } else if (zoom < 0.8) {
+    tickInterval = 20
+    labelInterval = 100
+  }
+
+  const ticks: string[] = []
+  const labels: React.ReactNode[] = []
+
+  for (let x = 0; x <= width; x += tickInterval) {
+    const sx = x * zoom
+    const isLabel = x % labelInterval === 0
+    const isMedium = x % (labelInterval / 2) === 0
+
+    if (isLabel) {
+      ticks.push(`M ${sx} 8 L ${sx} ${RULER_SIZE}`)
+      labels.push(
+        <text
+          key={x}
+          x={sx + 3}
+          y={8}
+          fill="#8b949e"
+          style={{ userSelect: 'none', fontFamily: 'monospace', fontSize: '7.5px' }}
+        >
+          {x}
+        </text>
+      )
+    } else if (isMedium) {
+      ticks.push(`M ${sx} 12 L ${sx} ${RULER_SIZE}`)
+    } else {
+      ticks.push(`M ${sx} 16 L ${sx} ${RULER_SIZE}`)
+    }
+  }
+
+  return (
+    <svg style={{ width: '100%', height: '100%', display: 'block' }}>
+      <path d={ticks.join(' ')} stroke="rgba(255,255,255,0.08)" strokeWidth={1} shapeRendering="crispEdges" />
+      {labels}
+    </svg>
+  )
+}
+
+function VerticalRuler({ height, zoom }: { height: number; zoom: number }) {
+  let tickInterval = 10
+  let labelInterval = 100
+
+  if (zoom < 0.25) {
+    tickInterval = 100
+    labelInterval = 500
+  } else if (zoom < 0.5) {
+    tickInterval = 50
+    labelInterval = 200
+  } else if (zoom < 0.8) {
+    tickInterval = 20
+    labelInterval = 100
+  }
+
+  const ticks: string[] = []
+  const labels: React.ReactNode[] = []
+
+  for (let y = 0; y <= height; y += tickInterval) {
+    const sy = y * zoom
+    const isLabel = y % labelInterval === 0
+    const isMedium = y % (labelInterval / 2) === 0
+
+    if (isLabel) {
+      ticks.push(`M 8 ${sy} L ${RULER_SIZE} ${sy}`)
+      labels.push(
+        <text
+          key={y}
+          x={2}
+          y={sy + 7}
+          fill="#8b949e"
+          style={{ userSelect: 'none', fontFamily: 'monospace', fontSize: '7.5px' }}
+        >
+          {y}
+        </text>
+      )
+    } else if (isMedium) {
+      ticks.push(`M 12 ${sy} L ${RULER_SIZE} ${sy}`)
+    } else {
+      ticks.push(`M 16 ${sy} L ${RULER_SIZE} ${sy}`)
+    }
+  }
+
+  return (
+    <svg style={{ width: '100%', height: '100%', display: 'block' }}>
+      <path d={ticks.join(' ')} stroke="rgba(255,255,255,0.08)" strokeWidth={1} shapeRendering="crispEdges" />
+      {labels}
+    </svg>
+  )
+}
+
 // Large virtual world so the canvas can be panned in every direction
 const WORLD = 8000
 
@@ -73,9 +177,25 @@ function HandleOverlay({ nodeId, pos, size, zoom, onResize }: {
 
 export default function Canvas({ tree, selectedId, canvas, zoom, panMode, onSelect, onDrop, onMove, onResize, onRootDrop, onWheelZoom }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
   const [spaceHeld, setSpaceHeld] = useState(false)
   const [shiftHeld, setShiftHeld] = useState(false)
   const [snapLines, setSnapLines] = useState<SnapLine[]>([])
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!frameRef.current) return
+    const rect = frameRef.current.getBoundingClientRect()
+    const screenX = e.clientX - rect.left
+    const screenY = e.clientY - rect.top
+    frameRef.current.style.setProperty('--cursor-x', `${screenX}px`)
+    frameRef.current.style.setProperty('--cursor-y', `${screenY}px`)
+    frameRef.current.style.setProperty('--cursor-opacity', '1')
+  }
+
+  const handleMouseLeave = () => {
+    if (!frameRef.current) return
+    frameRef.current.style.setProperty('--cursor-opacity', '0')
+  }
 
   // Scroll to center of virtual world when canvas preset changes or on mount
   const scrollToCenter = () => {
@@ -174,14 +294,88 @@ export default function Canvas({ tree, selectedId, canvas, zoom, panMode, onSele
       <div style={{ width: WORLD, height: WORLD, position: 'relative', flexShrink: 0 }}>
 
         {/* Canvas frame, absolutely centered in the world */}
-        <div style={{
-          position: 'absolute',
-          left: frameLeft,
-          top: frameTop,
-          width: canvas.w * zoom,
-          height: canvas.h * zoom,
-          boxShadow: '0 0 0 1px #3a3f50, 0 12px 60px rgba(0,0,0,0.7)',
-        }}>
+        <div
+          ref={frameRef}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          style={{
+            position: 'absolute',
+            left: frameLeft,
+            top: frameTop,
+            width: canvas.w * zoom,
+            height: canvas.h * zoom,
+            boxShadow: '0 0 0 1px #3a3f50, 0 12px 60px rgba(0,0,0,0.7)',
+          }}
+        >
+          {/* Top Ruler */}
+          <div style={{
+            position: 'absolute',
+            top: -RULER_SIZE,
+            left: 0,
+            width: canvas.w * zoom,
+            height: RULER_SIZE,
+            background: '#0d1117',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}>
+            <HorizontalRuler width={canvas.w} zoom={zoom} />
+            <div style={{
+              position: 'absolute',
+              left: 'var(--cursor-x, 0px)',
+              top: 0,
+              bottom: 0,
+              width: 1,
+              borderLeft: '1px dashed #e8750a',
+              opacity: 'var(--cursor-opacity, 0)',
+              pointerEvents: 'none',
+              transition: 'opacity 150ms',
+            }} />
+          </div>
+
+          {/* Left Ruler */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: -RULER_SIZE,
+            width: RULER_SIZE,
+            height: canvas.h * zoom,
+            background: '#0d1117',
+            borderLeft: '1px solid rgba(255,255,255,0.08)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}>
+            <VerticalRuler height={canvas.h} zoom={zoom} />
+            <div style={{
+              position: 'absolute',
+              top: 'var(--cursor-y, 0px)',
+              left: 0,
+              right: 0,
+              height: 1,
+              borderTop: '1px dashed #e8750a',
+              opacity: 'var(--cursor-opacity, 0)',
+              pointerEvents: 'none',
+              transition: 'opacity 150ms',
+            }} />
+          </div>
+
+          {/* Top-Left Corner Box */}
+          <div style={{
+            position: 'absolute',
+            top: -RULER_SIZE,
+            left: -RULER_SIZE,
+            width: RULER_SIZE,
+            height: RULER_SIZE,
+            background: '#0d1117',
+            borderLeft: '1px solid rgba(255,255,255,0.08)',
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            zIndex: 10,
+          }} />
+
           {/* Scaled widget layer */}
           <div
             style={{
