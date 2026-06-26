@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { WidgetNode, StyleData, SlotData, PropData } from '@/lib/types'
 import { WMAP } from '@/lib/widgetDefs'
 import { findParent } from '@/lib/treeOps'
+import { WIDGET_TIPS } from './SuggestionToast'
 
 interface Props {
   node: WidgetNode | null
@@ -667,6 +668,41 @@ export default function PropertiesPanel({ node, tree, onChange }: Props) {
             </Row>
           </Section>
         )}
+
+      {/* ── Widget tip ──────────────────────── */}
+      {(() => {
+        const tip = WIDGET_TIPS[node.type]
+        if (!tip) return null
+        const isWarning = tip.level === 'warning'
+        const accent = isWarning ? '#f28c1a' : '#40d972'
+        const bg     = isWarning ? 'rgba(242,140,26,0.05)' : 'rgba(64,217,114,0.04)'
+        const border = isWarning ? 'rgba(242,140,26,0.15)' : 'rgba(64,217,114,0.15)'
+        return (
+          <div style={{
+            margin: '10px 10px 10px',
+            borderRadius: 7,
+            border: `1px solid ${border}`,
+            borderLeft: `3px solid ${accent}`,
+            background: bg,
+            padding: '9px 11px',
+            flexShrink: 0,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 5 }}>
+              <span style={{ fontSize: 11 }}>{isWarning ? '⚠️' : '💡'}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: accent }}>
+                {tip.title}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 10.5, color: '#8b949e', lineHeight: 1.6 }}>{tip.message}</p>
+            {tip.useInstead && (
+              <div style={{ marginTop: 7, padding: '6px 8px', background: 'rgba(255,255,255,0.025)', borderRadius: 5, border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize: 8.5, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: '#484f58', marginBottom: 3 }}>Use Instead</div>
+                <p style={{ margin: 0, fontSize: 10.5, color: '#c9d1d9', lineHeight: 1.5 }}>{tip.useInstead}</p>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       </div>
     </div>

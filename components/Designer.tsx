@@ -12,6 +12,7 @@ import Hierarchy from './Hierarchy'
 import PropertiesPanel from './PropertiesPanel'
 import WidgetRenderer from './WidgetRenderer'
 import ThemePicker from './ThemePicker'
+import SuggestionToast, { Suggestion } from './SuggestionToast'
 import { findNode, findParent } from '@/lib/treeOps'
 
 const ZOOM_STEPS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2]
@@ -133,6 +134,18 @@ export default function Designer() {
   const [showPreview, setShowPreview] = useState(false)
   const [showThemes, setShowThemes] = useState(false)
   const themesButtonRef = useRef<HTMLButtonElement>(null)
+
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const pushSuggestion = useCallback((s: Omit<Suggestion, 'id'>) => {
+    setSuggestions(prev => {
+      // Deduplicate by title to avoid spamming the same message
+      if (prev.some(p => p.title === s.title)) return prev
+      return [...prev, { ...s, id: Math.random().toString(36).substring(2) }]
+    })
+  }, [])
+  const dismissSuggestion = useCallback((id: string) => {
+    setSuggestions(prev => prev.filter(s => s.id !== id))
+  }, [])
 
   const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('connected')
   const lastSyncedVersion = useRef<number>(0)
@@ -315,12 +328,28 @@ export default function Designer() {
       // If target selected node is a single-child panel and already has a child,
       // we must add the new widget to its parent instead.
       if (parentNode && parentDef?.panel && SINGLE_CHILD_PANELS.has(parentNode.type) && parentNode.children.length >= 1) {
+        pushSuggestion({
+          level: 'warning',
+          title: `${parentNode.type} is already full`,
+          message: `${parentNode.type} is a single-slot panel — it already has a child. The new widget was added to the parent instead.`,
+          useInstead: 'Wrap multiple children in a HorizontalBox (side by side) or VerticalBox (stacked), then place that inside the ' + parentNode.type + '.',
+        })
         const grandParent = findParent(state.tree, targetSel)
         if (grandParent) {
           parentNode = grandParent
           parentDef = WMAP[grandParent.type]
           finalParentId = grandParent.id
         }
+      }
+
+      // Suggest against interactive children inside a Button
+      if (parentNode && parentNode.type === 'Button' && (type === 'Button' || type === 'CheckBox' || type === 'Slider' || type === 'TextInput' || type === 'SpinBox')) {
+        pushSuggestion({
+          level: 'warning',
+          title: 'Interactive widget inside a Button',
+          message: `Placing a ${type} inside a Button can cause input events to be blocked. UMG routes clicks to the outermost interactive widget.`,
+          useInstead: 'Use a Border or Overlay as the container, or restructure your layout so interactive widgets are siblings, not children of a Button.',
+        })
       }
 
       if (parentDef?.panel) {
@@ -337,6 +366,12 @@ export default function Designer() {
           let finalSiblingDef = WMAP[leafParent.type]
           
           if (SINGLE_CHILD_PANELS.has(leafParent.type)) {
+            pushSuggestion({
+              level: 'warning',
+              title: `${leafParent.type} is already full`,
+              message: `${leafParent.type} is a single-slot panel — it already has a child. The new widget was added further up the tree.`,
+              useInstead: 'Use HorizontalBox or VerticalBox to hold multiple siblings.',
+            })
             const grandParent = findParent(state.tree, leafParent.id)
             if (grandParent) {
               finalSiblingParent = grandParent
@@ -369,6 +404,12 @@ export default function Designer() {
     if (state.tree) {
       const targetNode = findNode(state.tree, targetId)
       if (targetNode && SINGLE_CHILD_PANELS.has(targetNode.type) && targetNode.children.length >= 1) {
+        pushSuggestion({
+          level: 'warning',
+          title: `${targetNode.type} is already full`,
+          message: `You dropped a widget onto a ${targetNode.type}, but it already has a child. The new widget was placed in the parent instead.`,
+          useInstead: 'Wrap the children in a HorizontalBox or VerticalBox first, then nest that inside ' + targetNode.type + '.',
+        })
         const parentNode = findParent(state.tree, targetId)
         if (parentNode) {
           finalTargetId = parentNode.id
@@ -738,6 +779,9 @@ export default function Designer() {
           )}
         </div>
       )}
+
+      {/* ── Suggestion toasts ────────────────────────────────── */}
+      <SuggestionToast suggestions={suggestions} onDismiss={dismissSuggestion} />
 
       {/* ── Main layout ──────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
