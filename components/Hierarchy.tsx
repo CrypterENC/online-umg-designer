@@ -15,23 +15,33 @@ interface Props {
   onDuplicate: (id: string) => void
   onToggleVisible: (id: string) => void
   onToggleLock: (id: string) => void
+  onLockAll: () => void
+  onUnlockAll: () => void
 }
 
-export default function Hierarchy({ tree, selectedId, expanded, onSelect, onToggleExpand, onDelete, onMoveUp, onMoveDown, onDuplicate, onToggleVisible, onToggleLock }: Props) {
+export default function Hierarchy({
+  tree, selectedId, expanded, onSelect, onToggleExpand, onDelete, onMoveUp, onMoveDown, onDuplicate, onToggleVisible, onToggleLock, onLockAll, onUnlockAll
+}: Props) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Action bar */}
       <div className="flex items-center gap-1 px-2 py-1.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        {[
-          { label: '↑', title: 'Move Up',    action: () => selectedId && onMoveUp(selectedId),    danger: false },
-          { label: '↓', title: 'Move Down',  action: () => selectedId && onMoveDown(selectedId),  danger: false },
-          { label: '⧉', title: 'Duplicate',  action: () => selectedId && onDuplicate(selectedId), danger: false },
-          { label: '✕', title: 'Delete',     action: () => selectedId && onDelete(selectedId),    danger: true  },
-        ].map(btn => (
-          <button key={btn.label} title={btn.title} onClick={btn.action} disabled={!selectedId} className={btn.danger ? 'hbtn hbtn-danger' : 'hbtn'}>
-            {btn.label}
-          </button>
-        ))}
+        <div className="flex items-center gap-1 flex-1">
+          {[
+            { label: '↑', title: 'Move Up',    action: () => selectedId && onMoveUp(selectedId),    danger: false },
+            { label: '↓', title: 'Move Down',  action: () => selectedId && onMoveDown(selectedId),  danger: false },
+            { label: '⧉', title: 'Duplicate',  action: () => selectedId && onDuplicate(selectedId), danger: false },
+            { label: '✕', title: 'Delete',     action: () => selectedId && onDelete(selectedId),    danger: true  },
+          ].map(btn => (
+            <button key={btn.label} title={btn.title} onClick={btn.action} disabled={!selectedId} className={btn.danger ? 'hbtn hbtn-danger' : 'hbtn'}>
+              {btn.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          <button title="Lock All Widgets" onClick={onLockAll} disabled={!tree} className="hbtn" style={{ width: 28, fontSize: 10 }}>🔒</button>
+          <button title="Unlock All Widgets" onClick={onUnlockAll} disabled={!tree} className="hbtn" style={{ width: 28, fontSize: 10 }}>🔓</button>
+        </div>
       </div>
 
       {/* Tree */}

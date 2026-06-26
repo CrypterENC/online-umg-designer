@@ -201,6 +201,27 @@ export default function Designer() {
     dispatch({ type: 'UPDATE_NODE', id, patch: { slot: { ...node?.slot, position: pos, size } } })
   }, [state.tree])
 
+  const setLockAll = useCallback((node: WidgetNode | null, locked: boolean): WidgetNode | null => {
+    if (!node) return null
+    return {
+      ...node,
+      editorLocked: locked,
+      children: node.children.map(child => setLockAll(child, locked) as WidgetNode),
+    }
+  }, [])
+
+  const handleLockAll = useCallback(() => {
+    if (!state.tree) return
+    const newTree = setLockAll(state.tree, true)
+    dispatch({ type: 'SET_TREE', tree: newTree })
+  }, [state.tree, setLockAll])
+
+  const handleUnlockAll = useCallback(() => {
+    if (!state.tree) return
+    const newTree = setLockAll(state.tree, false)
+    dispatch({ type: 'SET_TREE', tree: newTree })
+  }, [state.tree, setLockAll])
+
   const handleImport = useCallback((file: File) => {
     file.text().then(text => {
       try {
@@ -449,6 +470,8 @@ export default function Designer() {
                     const n = state.tree && findNode(state.tree, id)
                     if (n) dispatch({ type: 'UPDATE_NODE', id, patch: { editorLocked: !n.editorLocked } })
                   }}
+                  onLockAll={handleLockAll}
+                  onUnlockAll={handleUnlockAll}
                 />
             }
           </div>
