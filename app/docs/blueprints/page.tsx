@@ -308,7 +308,7 @@ const SECTIONS = [
 
         {/* ── ComboBox ── */}
         <SubHeading id="wire-combobox">ComboBox</SubHeading>
-        <P>Fires when the selected option changes. Returns the selected option text and index.</P>
+        <P>Fires when the selected option changes. Returns the selected option text (<Code>SelectedItem</Code>) and the selection method (<Code>SelectionType</Code>). To retrieve the numerical index of the choice, drag your ComboBox variable to the graph and call the <Code>Get Selected Index</Code> function.</P>
         
         <BpGraph>
           <BpNode 
@@ -317,7 +317,8 @@ const SECTIONS = [
             category="event"
             outputs={[
               { name: 'Then', type: 'exec' },
-              { name: 'Selected Item', type: 'string' }
+              { name: 'Selected Item', type: 'string' },
+              { name: 'Selection Type', type: 'class' }
             ]}
             width={240}
           />

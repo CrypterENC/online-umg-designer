@@ -125,6 +125,38 @@ const SECTIONS = [
       </>
     ),
   },
+  {
+    id: 'ue-tutorial',
+    title: 'Tutorial: Recreating Animations in Unreal Editor',
+    content: (
+      <>
+        <P>To recreate the animations designed in the web editor inside the Unreal Editor, you construct a native <strong>Widget Animation</strong> and trigger it in your blueprint graph.</P>
+        
+        <Steps items={[
+          {
+            n: '01',
+            title: 'Create the Widget Animation',
+            desc: 'Open your Widget Blueprint. In the bottom-left window, find the "Animations" panel and click "+ Animation". Name it to match your animation style (e.g., "PulseAnim" or "FadeInAnim").'
+          },
+          {
+            n: '02',
+            title: 'Add Keyframes to the Timeline',
+            desc: 'Select your animation, then select your target widget variable (e.g., Btn_Play). In the Timeline panel, click "+ Track" and select your widget name. Click the "+" next to the track to add a property track (e.g., Render Transform -> Scale, or Color and Opacity). Move the playhead and add keyframe values to match your CSS timing (e.g., key scale at 1.0 at 0.0s, scale at 1.06 at 0.75s, scale at 1.0 at 1.5s).'
+          },
+          {
+            n: '03',
+            title: 'Play the Animation on Construction',
+            desc: 'Switch to the Graph tab. Under Event Construct, drag your animation variable reference (found under the Variables -> Animations category on the left) to the Event Graph. Drag off it and call the "Play Animation" function node.'
+          },
+          {
+            n: '04',
+            title: 'Configure Loop & Delay in Blueprint',
+            desc: 'In the Play Animation node details: Set "Num Loops to Play" to 0 for infinite loop (matching loop: true), or 1 for single play. If your JSON includes a delay, you can call "Delay" in your blueprint flow before calling Play Animation.'
+          }
+        ]} />
+      </>
+    ),
+  },
 ]
 
 // ── Prose components ──────────────────────────────────────────────────────────
