@@ -205,21 +205,47 @@ export default function Designer() {
               console.error('Failed to restore server state after container recycle:', pushErr)
             }
           } else {
-            isSyncingFromServer.current = true
-            setSyncStatus('syncing')
-            
-            dispatch({ type: 'SET_TREE', tree: data.tree })
-            dispatch({ type: 'SET_CANVAS', canvas: data.canvas })
-            dispatch({ type: 'SET_WIDGET_NAME', name: data.widgetName })
-            
-            lastSyncedVersion.current = data.version
-            
-            setTimeout(() => {
-              if (active) {
-                isSyncingFromServer.current = false
-                setSyncStatus('connected')
-              }
-            }, 100)
+            // ─── Content-aware sync ────────────────────────────────────────────
+            // Before dispatching a potentially expensive SET_TREE, check whether
+            // the incoming tree is actually DIFFERENT from what we already have.
+            // If we just pushed our own changes, the server echoes them back with
+            // a bumped version — dispatching SET_TREE for identical data causes a
+            // needless full re-render that the user sees as a "canvas refresh".
+            const incomingTree   = JSON.stringify(data.tree)
+            const currentTree    = JSON.stringify(stateRef.current.tree)
+            const incomingCanvas = JSON.stringify(data.canvas)
+            const currentCanvas  = JSON.stringify(stateRef.current.canvas)
+            const incomingName   = data.widgetName ?? ''
+            const currentName    = stateRef.current.widgetName ?? ''
+
+            const treeChanged   = incomingTree   !== currentTree
+            const canvasChanged = incomingCanvas !== currentCanvas
+            const nameChanged   = incomingName   !== currentName
+
+            if (!treeChanged && !canvasChanged && !nameChanged) {
+              // Server echoed our own data back — just update the version silently.
+              // No dispatch means no re-render, no visible canvas flicker.
+              lastSyncedVersion.current = data.version
+            } else {
+              // Genuine changes from another collaborator — apply them.
+              isSyncingFromServer.current = true
+              setSyncStatus('syncing')
+
+              if (treeChanged)   dispatch({ type: 'SET_TREE',        tree: data.tree })
+              if (canvasChanged) dispatch({ type: 'SET_CANVAS',      canvas: data.canvas })
+              if (nameChanged)   dispatch({ type: 'SET_WIDGET_NAME', name: data.widgetName })
+
+              lastSyncedVersion.current = data.version
+
+              // Keep isSyncingFromServer true long enough to suppress the push
+              // effect that would otherwise fire because state just changed.
+              setTimeout(() => {
+                if (active) {
+                  isSyncingFromServer.current = false
+                  setSyncStatus('connected')
+                }
+              }, 600)
+            }
           }
         }
       } catch (err) {
