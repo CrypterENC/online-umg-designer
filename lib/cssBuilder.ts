@@ -60,7 +60,21 @@ export function buildSlotCss(slot: SlotData, parentType: string): string {
     css += `justify-self:${ha==='Fill'?'stretch':ha==='Left'?'start':ha==='Right'?'end':'center'};`
     css += `align-self:${va==='Fill'?'stretch':va==='Top'?'start':va==='Bottom'?'end':'center'};`
   } else if (['Border','SizeBox','ScaleBox','Button','NamedSlot','InvalidationBox'].includes(parentType)) {
-    css += `flex:1;`
+    const ha = slot.horizontalAlignment || 'Fill'
+    const va = slot.verticalAlignment || 'Fill'
+    if (va === 'Fill') css += `align-self:stretch;`
+    else if (va === 'Top') css += `align-self:flex-start;`
+    else if (va === 'Bottom') css += `align-self:flex-end;`
+    else css += `align-self:center;`
+    
+    if (ha === 'Fill') {
+      css += `flex:1;width:100%;`
+    } else {
+      css += `flex:0 0 auto;width:auto;`
+      if (ha === 'Left') css += `margin-right:auto;`
+      else if (ha === 'Right') css += `margin-left:auto;`
+      else css += `margin-left:auto;margin-right:auto;`
+    }
   } else {
     css += slot.sizeRule === 'Fill' ? `flex:${slot.fillWeight||1} 1 0;` : `flex:0 0 auto;`
   }
