@@ -132,14 +132,9 @@ if (!globalAny.mcpServer) {
   )
 
   globalAny.mcpServer = server
-
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-  globalAny.mcpTransport = transport
-  server.connect(transport).catch(console.error)
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
@@ -148,9 +143,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).end()
   }
 
-  // Handle request using MCP Server transport
+  // ponytail: fresh transport per request — SDK requires this for stateless mode
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+  await globalAny.mcpServer.connect(transport)
+
   try {
-    await globalAny.mcpTransport.handleRequest(req, res, req.body)
+    await transport.handleRequest(req, res, req.body)
+    res.on('close', () => transport.close())
   } catch (error) {
     console.error('MCP handler error:', error)
     if (!res.writableEnded) {
