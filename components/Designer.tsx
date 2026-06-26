@@ -2,7 +2,7 @@
 import React, { useReducer, useCallback, useEffect, useRef, useState } from 'react'
 import { reducer, initialState } from '@/lib/store'
 import { WidgetNode } from '@/lib/types'
-import { WMAP } from '@/lib/widgetDefs'
+import { WMAP, SINGLE_CHILD_PANELS } from '@/lib/widgetDefs'
 import { uid } from '@/lib/uid'
 import { collectPanelIds } from '@/lib/treeOps'
 import { exportJSON, parseUmgBridgeJSON } from '@/lib/exportImport'
@@ -12,7 +12,7 @@ import Hierarchy from './Hierarchy'
 import PropertiesPanel from './PropertiesPanel'
 import WidgetRenderer from './WidgetRenderer'
 import ThemePicker from './ThemePicker'
-import { findNode } from '@/lib/treeOps'
+import { findNode, findParent } from '@/lib/treeOps'
 
 const ZOOM_STEPS = [0.1, 0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2]
 const CANVAS_PRESETS: Record<string, { w: number; h: number }> = {
@@ -308,13 +308,50 @@ export default function Designer() {
       if (def?.panel) dispatch({ type: 'EXPAND_ALL_PANELS', ids: [node.id] })
       dispatch({ type: 'SELECT', id: node.id })
     } else if (targetSel) {
-      const parentNode = findNode(state.tree, targetSel)
-      const parentDef = parentNode ? WMAP[parentNode.type] : null
+      let parentNode = findNode(state.tree, targetSel)
+      let parentDef = parentNode ? WMAP[parentNode.type] : null
+      let finalParentId = targetSel
+
+      // If target selected node is a single-child panel and already has a child,
+      // we must add the new widget to its parent instead.
+      if (parentNode && parentDef?.panel && SINGLE_CHILD_PANELS.has(parentNode.type) && parentNode.children.length >= 1) {
+        const grandParent = findParent(state.tree, targetSel)
+        if (grandParent) {
+          parentNode = grandParent
+          parentDef = WMAP[grandParent.type]
+          finalParentId = grandParent.id
+        }
+      }
+
       if (parentDef?.panel) {
         if (parentNode?.type === 'CanvasPanel') node.slot = { ...DEFAULT_CANVAS_PANEL_SLOT }
-        dispatch({ type: 'ADD_CHILD', parentId: targetSel, node })
-        if (!state.expanded.has(targetSel)) dispatch({ type: 'TOGGLE_EXPAND', id: targetSel })
+        dispatch({ type: 'ADD_CHILD', parentId: finalParentId, node })
+        if (!state.expanded.has(finalParentId)) dispatch({ type: 'TOGGLE_EXPAND', id: finalParentId })
       } else {
+        // Selected node is not a panel (leaf). Add it to the leaf's parent (sibling of leaf).
+        const leafParent = findParent(state.tree, targetSel)
+        if (leafParent) {
+          // If leaf's parent is a single-child panel, it already has the leaf child, so it can't accept another!
+          // We must bubble up even further.
+          let finalSiblingParent = leafParent
+          let finalSiblingDef = WMAP[leafParent.type]
+          
+          if (SINGLE_CHILD_PANELS.has(leafParent.type)) {
+            const grandParent = findParent(state.tree, leafParent.id)
+            if (grandParent) {
+              finalSiblingParent = grandParent
+              finalSiblingDef = WMAP[grandParent.type]
+            }
+          }
+          
+          if (finalSiblingDef?.panel) {
+            if (finalSiblingParent.type === 'CanvasPanel') node.slot = { ...DEFAULT_CANVAS_PANEL_SLOT }
+            dispatch({ type: 'ADD_CHILD', parentId: finalSiblingParent.id, node })
+            if (!state.expanded.has(finalSiblingParent.id)) dispatch({ type: 'TOGGLE_EXPAND', id: finalSiblingParent.id })
+            return
+          }
+        }
+
         if (state.tree.type === 'CanvasPanel') node.slot = { ...DEFAULT_CANVAS_PANEL_SLOT }
         dispatch({ type: 'ADD_CHILD', parentId: state.tree.id, node })
       }
@@ -327,9 +364,21 @@ export default function Designer() {
   const handleDrop = useCallback((targetId: string, widgetType: string, draggedId?: string) => {
     if (draggedId) return
     const node = makeNode(widgetType)
-    dispatch({ type: 'ADD_CHILD', parentId: targetId, node })
-    if (!state.expanded.has(targetId)) dispatch({ type: 'TOGGLE_EXPAND', id: targetId })
-  }, [state.expanded])
+    
+    let finalTargetId = targetId
+    if (state.tree) {
+      const targetNode = findNode(state.tree, targetId)
+      if (targetNode && SINGLE_CHILD_PANELS.has(targetNode.type) && targetNode.children.length >= 1) {
+        const parentNode = findParent(state.tree, targetId)
+        if (parentNode) {
+          finalTargetId = parentNode.id
+        }
+      }
+    }
+
+    dispatch({ type: 'ADD_CHILD', parentId: finalTargetId, node })
+    if (!state.expanded.has(finalTargetId)) dispatch({ type: 'TOGGLE_EXPAND', id: finalTargetId })
+  }, [state.tree, state.expanded])
 
   const handleRootDrop = useCallback((widgetType: string) => {
     if (state.tree) return

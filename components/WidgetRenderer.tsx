@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react'
 import { WidgetNode } from '@/lib/types'
 import { buildSlotCss, buildWidgetCss, hexToRgba } from '@/lib/cssBuilder'
-import { WMAP } from '@/lib/widgetDefs'
+import { WMAP, SINGLE_CHILD_PANELS } from '@/lib/widgetDefs'
 
 interface Props {
   node: WidgetNode
@@ -152,7 +152,13 @@ export default function WidgetRenderer({ node, parentType, selectedId, onSelect,
     ;(style as any)[camel] = val
   })
 
-const handleDragOver = (e: React.DragEvent) => { if (isPanel) { e.preventDefault(); e.stopPropagation() } }
+  const handleDragOver = (e: React.DragEvent) => {
+    const isSingleChildAndFull = isPanel && SINGLE_CHILD_PANELS.has(node.type) && node.children.length >= 1
+    if (isPanel && !isSingleChildAndFull) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
   const handleDrop = (e: React.DragEvent) => {
     if (!isPanel) return
     e.preventDefault(); e.stopPropagation()

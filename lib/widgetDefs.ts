@@ -40,6 +40,16 @@ export const WMAP: Record<string, WidgetDef> = {
   CircularThrobber:  { panel: false, icon: '◌', label: 'Circular Throbber' },
 }
 
+export const SINGLE_CHILD_PANELS = new Set([
+  'Border',
+  'SizeBox',
+  'ScaleBox',
+  'BackgroundBlur',
+  'RetainerBox',
+  'InvalidationBox',
+  'NamedSlot'
+])
+
 export const PALETTE_GROUPS = [
   {
     label: 'Panels',
