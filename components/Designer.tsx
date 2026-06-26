@@ -325,16 +325,16 @@ export default function Designer() {
           <span>{syncStatus === 'connected' ? 'LIVE' : syncStatus === 'syncing' ? 'SYNCING' : 'OFFLINE'}</span>
         </div>
 
-        {isVercelBuilding && (
-          <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-1.5 animate-pulse" style={{
-            background: 'rgba(232,117,10,0.15)',
-            color: '#ff983d',
-            border: '1px solid rgba(232,117,10,0.3)',
-          }} title="Vercel is building the latest commit.">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#ff983d' }} />
-            <span>NEXT UPDATE IN PROGRESS</span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-1.5" style={{
+          background: isVercelBuilding ? 'rgba(232,117,10,0.15)' : 'rgba(255,255,255,0.03)',
+          color: isVercelBuilding ? '#ff983d' : '#8b949e',
+          border: isVercelBuilding ? '1px solid rgba(232,117,10,0.3)' : '1px solid rgba(255,255,255,0.08)',
+        }} title={isVercelBuilding ? "Vercel is building the latest commit." : "Vercel deployments are up to date."}>
+          <span className={`w-1.5 h-1.5 rounded-full ${isVercelBuilding ? 'animate-pulse' : ''}`} style={{
+            background: isVercelBuilding ? '#ff983d' : '#8b949e'
+          }} />
+          <span>{isVercelBuilding ? 'NEXT UPDATE IN PROGRESS' : 'VERCEL: IDLE'}</span>
+        </div>
 
         {SEP}
 
