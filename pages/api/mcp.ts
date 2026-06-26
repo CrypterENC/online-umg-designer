@@ -1,0 +1,144 @@
+import { NextApiRequest, NextApiResponse } from 'next'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import { z } from 'zod'
+import { addWidgetToState, listWidgetsInTree } from '@/lib/mcpHelpers'
+
+const globalAny = global as any
+
+// Initialize design state if it doesn't exist
+if (!globalAny.designState) {
+  globalAny.designState = {
+    version: 1,
+    updatedAt: Date.now(),
+    tree: null,
+    canvas: { w: 1920, h: 1080 },
+    widgetName: 'WBP_MyWidget',
+  }
+}
+
+// Initialize MCP server instance once
+if (!globalAny.mcpServer) {
+  const server = new McpServer({ name: 'umg-designer-mcp', version: '1.0.0' })
+
+  // Tool: add_widget
+  server.tool(
+    'add_widget',
+    'Add a widget to the canvas tree layout.',
+    {
+      type: z.string().describe('Widget type (e.g. Button, Text, Image, VerticalBox, HorizontalBox, CanvasPanel, Overlay, ScrollBox, GridPanel, Border, ProgressBar, etc.)'),
+      name: z.string().describe('Unique descriptive name for the widget (e.g. Btn_HostGame, Txt_Title)'),
+      properties: z.record(z.string(), z.any()).optional().describe('Widget properties (e.g., text, fontSize, color, percent, hintText)'),
+      style: z.record(z.string(), z.any()).optional().describe('Styling properties (e.g., backgroundColor, borderColor, borderRadius, borderWidth, opacity, padding)'),
+      slot: z.record(z.string(), z.any()).optional().describe('Layout slot parameters (e.g., position, size, sizeRule, horizontalAlignment, verticalAlignment)'),
+      parentId: z.string().optional().describe('Optional ID or name of the parent container widget to nest this widget under.'),
+    },
+    async ({ type, name, properties = {}, style = {}, slot = {}, parentId }) => {
+      try {
+        const addedNode = addWidgetToState(globalAny.designState, type, name, properties, style, slot, parentId)
+        globalAny.designState.version += 1
+        globalAny.designState.updatedAt = Date.now()
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Added ${type} widget "${name}" (ID: ${addedNode.id}) to layout.`,
+            },
+          ],
+        }
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to add widget: ${(err as Error).message}` }],
+        }
+      }
+    }
+  )
+
+  // Tool: list_widgets
+  server.tool(
+    'list_widgets',
+    'List all widgets currently on the canvas design.',
+    {},
+    async () => {
+      const widgets = listWidgetsInTree(globalAny.designState.tree)
+      const text = widgets.length === 0 ? 'No widgets on canvas.' : JSON.stringify(widgets, null, 2)
+      return { content: [{ type: 'text', text }] }
+    }
+  )
+
+  // Tool: clear_canvas
+  server.tool(
+    'clear_canvas',
+    'Clear all widgets and reset the canvas design layout.',
+    {},
+    async () => {
+      globalAny.designState.tree = null
+      globalAny.designState.version += 1
+      globalAny.designState.updatedAt = Date.now()
+      return { content: [{ type: 'text', text: 'Canvas successfully cleared.' }] }
+    }
+  )
+
+  // Tool: export_design
+  server.tool(
+    'export_design',
+    'Export current design state in .umgbridge.json schema format.',
+    {
+      filename: z.string().describe('The target output filename (e.g. WBP_MainMenu.umgbridge.json)'),
+    },
+    async ({ filename }) => {
+      const widgetName = filename.replace(/\.(umgbridge\.)?json$/i, '')
+      globalAny.designState.widgetName = widgetName
+      globalAny.designState.version += 1
+      globalAny.designState.updatedAt = Date.now()
+
+      const output = {
+        version: '1.0',
+        name: widgetName,
+        canvas: {
+          width: globalAny.designState.canvas.w,
+          height: globalAny.designState.canvas.h,
+        },
+        tree: globalAny.designState.tree,
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(output, null, 2),
+          },
+        ],
+      }
+    }
+  )
+
+  globalAny.mcpServer = server
+}
+
+const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+
+// Connect the transport to the server instance
+globalAny.mcpServer.connect(transport).catch(console.error)
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // CORS Headers
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
+
+  // Handle request using MCP Server transport
+  try {
+    await transport.handleRequest(req, res, req.body)
+  } catch (error) {
+    console.error('MCP handler error:', error)
+    if (!res.writableEnded) {
+      res.status(500).json({ error: (error as Error).message })
+    }
+  }
+}

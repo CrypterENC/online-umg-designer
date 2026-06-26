@@ -53,6 +53,86 @@ export default function Designer() {
   const [showThemes, setShowThemes] = useState(false)
   const themesButtonRef = useRef<HTMLButtonElement>(null)
 
+  const [syncStatus, setSyncStatus] = useState<'connected' | 'offline' | 'syncing'>('connected')
+  const lastSyncedVersion = useRef<number>(0)
+  const isSyncingFromServer = useRef<boolean>(false)
+
+  // 1. Polling Effect (pull from server)
+  useEffect(() => {
+    let active = true
+    const poll = async () => {
+      try {
+        const resp = await fetch('/api/design')
+        if (!resp.ok) throw new Error('Offline')
+        const data = await resp.json()
+        if (!active) return
+
+        setSyncStatus('connected')
+
+        // If the server has a different version, load it
+        if (data.version !== lastSyncedVersion.current) {
+          isSyncingFromServer.current = true
+          setSyncStatus('syncing')
+          
+          dispatch({ type: 'SET_TREE', tree: data.tree })
+          dispatch({ type: 'SET_CANVAS', canvas: data.canvas })
+          dispatch({ type: 'SET_WIDGET_NAME', name: data.widgetName })
+          
+          lastSyncedVersion.current = data.version
+          
+          setTimeout(() => {
+            if (active) {
+              isSyncingFromServer.current = false
+              setSyncStatus('connected')
+            }
+          }, 100)
+        }
+      } catch (err) {
+        if (active) {
+          setSyncStatus('offline')
+        }
+      }
+    }
+
+    // Initial poll
+    poll()
+
+    // Poll every 1 second
+    const interval = setInterval(poll, 1000)
+    return () => {
+      active = false
+      clearInterval(interval)
+    }
+  }, [])
+
+  // 2. Push Effect (send to server when client changes)
+  useEffect(() => {
+    if (isSyncingFromServer.current) return
+
+    // Debounce pushing changes to server
+    const timer = setTimeout(async () => {
+      try {
+        const resp = await fetch('/api/design', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tree: state.tree,
+            canvas: state.canvas,
+            widgetName: state.widgetName,
+          }),
+        })
+        if (resp.ok) {
+          const data = await resp.json()
+          lastSyncedVersion.current = data.version
+        }
+      } catch (err) {
+        console.error('Failed to push design to server:', err)
+      }
+    }, 800) // 800ms debounce
+
+    return () => clearTimeout(timer)
+  }, [state.tree, state.canvas, state.widgetName])
+
   const selectedNode = state.tree && state.sel ? findNode(state.tree, state.sel) : null
 
   useEffect(() => {
@@ -158,6 +238,16 @@ export default function Designer() {
         style={{ height: 42, background: '#1e2229', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
       >
         <span className="section-label mr-2" style={{ letterSpacing: '0.12em' }}>UMG Designer</span>
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300" style={{
+          background: syncStatus === 'connected' ? 'rgba(64,217,114,0.1)' : syncStatus === 'syncing' ? 'rgba(242,140,26,0.1)' : 'rgba(255,107,107,0.1)',
+          color: syncStatus === 'connected' ? '#40d972' : syncStatus === 'syncing' ? '#f28c1a' : '#ff6b6b',
+          border: `1px solid ${syncStatus === 'connected' ? 'rgba(64,217,114,0.2)' : syncStatus === 'syncing' ? 'rgba(242,140,26,0.2)' : 'rgba(255,107,107,0.2)'}`
+        }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{
+            background: syncStatus === 'connected' ? '#40d972' : syncStatus === 'syncing' ? '#f28c1a' : '#ff6b6b'
+          }} />
+          <span>{syncStatus === 'connected' ? 'LIVE' : syncStatus === 'syncing' ? 'SYNCING' : 'OFFLINE'}</span>
+        </div>
         {SEP}
 
         {/* Tool toggle */}
