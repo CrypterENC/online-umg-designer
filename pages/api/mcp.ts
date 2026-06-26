@@ -132,12 +132,11 @@ if (!globalAny.mcpServer) {
   )
 
   globalAny.mcpServer = server
+
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
+  globalAny.mcpTransport = transport
+  server.connect(transport).catch(console.error)
 }
-
-const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-
-// Connect the transport to the server instance
-globalAny.mcpServer.connect(transport).catch(console.error)
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // CORS Headers
@@ -151,7 +150,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Handle request using MCP Server transport
   try {
-    await transport.handleRequest(req, res, req.body)
+    await globalAny.mcpTransport.handleRequest(req, res, req.body)
   } catch (error) {
     console.error('MCP handler error:', error)
     if (!res.writableEnded) {
