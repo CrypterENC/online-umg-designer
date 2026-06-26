@@ -160,6 +160,9 @@ interface ParsedWidget {
   text?: string
   pos?: { x: number; y: number }
   size?: { x: number; y: number }
+  sizeRule?: 'Auto' | 'Fill'
+  horizontalAlignment?: 'Fill' | 'Left' | 'Center' | 'Right'
+  verticalAlignment?: 'Fill' | 'Top' | 'Center' | 'Bottom'
   depth: number
 }
 
@@ -194,6 +197,27 @@ function parseHierarchyLine(line: string): ParsedWidget[] {
   const quoteMatch = restOfLine.match(/"([^"]*)"/)
   if (quoteMatch) {
     text = quoteMatch[1]
+  }
+
+  // Parse slot rules/alignments: e.g. (Fill, Center)
+  let sizeRule: 'Auto' | 'Fill' | undefined
+  let horizontalAlignment: 'Fill' | 'Left' | 'Center' | 'Right' | undefined
+  let verticalAlignment: 'Fill' | 'Top' | 'Center' | 'Bottom' | undefined
+
+  const parenMatch = restOfLine.match(/\(([^)]+)\)/)
+  if (parenMatch && !geomMatch && !restOfLine.match(/\((\d+)\s*[x×*]\s*(\d+)\)/)) {
+    const parts = parenMatch[1].split(',').map(p => p.trim())
+    for (const part of parts) {
+      const lower = part.toLowerCase()
+      if (lower === 'fill') sizeRule = 'Fill'
+      else if (lower === 'auto') sizeRule = 'Auto'
+      else if (['left', 'right', 'center', 'fill'].includes(lower)) {
+        horizontalAlignment = (part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()) as any
+      }
+      if (['top', 'bottom', 'center', 'fill'].includes(lower)) {
+        verticalAlignment = (part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()) as any
+      }
+    }
   }
 
   // Parse name and multipliers
@@ -258,6 +282,9 @@ function parseHierarchyLine(line: string): ParsedWidget[] {
     text,
     pos,
     size,
+    sizeRule,
+    horizontalAlignment,
+    verticalAlignment,
     depth: indentLength
   }]
 }
@@ -289,6 +316,15 @@ function createWidgetFromParsed(w: ParsedWidget): WidgetNode {
       ...(w.pos ? { position: w.pos } : {}),
       ...(w.size ? { size: w.size } : {}),
       anchors: { min: [0, 0] as [number, number], max: [0, 0] as [number, number] }
+    }
+  }
+
+  if (w.sizeRule || w.horizontalAlignment || w.verticalAlignment) {
+    node.slot = {
+      ...node.slot,
+      ...(w.sizeRule ? { sizeRule: w.sizeRule } : {}),
+      ...(w.horizontalAlignment ? { horizontalAlignment: w.horizontalAlignment } : {}),
+      ...(w.verticalAlignment ? { verticalAlignment: w.verticalAlignment } : {}),
     }
   }
 
@@ -326,9 +362,9 @@ export function parseUmgHierarchyText(text: string): WidgetNode | null {
     const parent = stack[stack.length - 1]
     parent.node.children.push(node)
 
-    // Push if it's a panel
+    // Push if it's a panel or a Button
     const def = WMAP[node.type]
-    if (def?.panel) {
+    if (def?.panel || node.type === 'Button') {
       stack.push({ node, indent: w.depth })
     }
   }
