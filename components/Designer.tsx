@@ -54,16 +54,44 @@ export default function Designer() {
 
   const [roomId, setRoomId] = useState<string>('default')
   const [isVercelBuilding, setIsVercelBuilding] = useState<boolean>(false)
+  const [isOwner, setIsOwner] = useState<boolean>(false)
+  const [members, setMembers] = useState<any[]>([])
+  const [showMembersDropdown, setShowMembersDropdown] = useState<boolean>(false)
 
-  // Initialize room ID from URL search parameter on mount
+  const memberIdRef = useRef<string>('')
+  const memberNameRef = useRef<string>('')
+
+  // Initialize member identification and room ID on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      let mId = sessionStorage.getItem('memberId')
+      if (!mId) {
+        mId = Math.random().toString(36).substring(2, 10)
+        sessionStorage.setItem('memberId', mId)
+      }
+      memberIdRef.current = mId
+
+      let mName = sessionStorage.getItem('memberName')
+      if (!mName) {
+        mName = 'Designer #' + Math.floor(100 + Math.random() * 900)
+        sessionStorage.setItem('memberName', mName)
+      }
+      memberNameRef.current = mName
+
       const params = new URLSearchParams(window.location.search)
       let r = params.get('room')
       if (!r) {
         r = Math.random().toString(36).substring(2, 8)
         params.set('room', r)
         window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+        localStorage.setItem(`owner_${r}`, 'true')
+        setIsOwner(true)
+      } else {
+        if (localStorage.getItem(`owner_${r}`) === 'true') {
+          setIsOwner(true)
+        } else {
+          setIsOwner(false)
+        }
       }
       setRoomId(r)
     }
@@ -90,12 +118,26 @@ export default function Designer() {
     let active = true
     const poll = async () => {
       try {
-        const resp = await fetch(`/api/design?room=${roomId}`)
+        const resp = await fetch(`/api/design?room=${roomId}&memberId=${memberIdRef.current}&memberName=${memberNameRef.current}`)
         if (!resp.ok) throw new Error('Offline')
         const data = await resp.json()
         if (!active) return
 
+        if (data.kicked) {
+          alert('You have been kicked from this room by the owner.')
+          const newRoom = Math.random().toString(36).substring(2, 8)
+          const params = new URLSearchParams(window.location.search)
+          params.set('room', newRoom)
+          window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`)
+          localStorage.setItem(`owner_${newRoom}`, 'true')
+          setIsOwner(true)
+          setRoomId(newRoom)
+          dispatch({ type: 'CLEAR' })
+          return
+        }
+
         setSyncStatus('connected')
+        setMembers(data.members || [])
 
         // If the server has a different version, load it
         if (data.version !== lastSyncedVersion.current) {
@@ -378,7 +420,79 @@ export default function Designer() {
             title="Click to copy collaborative room link"
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#e8750a' }} />
-            <span>ROOM: {roomId.toUpperCase()}</span>
+            <span>ROOM: {roomId.toUpperCase()} {isOwner && '(OWNER)'}</span>
+          </div>
+
+          {/* Members list dropdown */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowMembersDropdown(v => !v)}
+              className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold transition-all duration-300 ml-0.5 cursor-pointer hover:bg-[rgba(255,255,255,0.06)]"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                color: '#8b949e',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+              title="Active members in this room"
+            >
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#40d972' }} />
+              <span>👥 {members.length}</span>
+            </button>
+
+            {showMembersDropdown && (
+              <div 
+                className="absolute top-8 left-0.5 w-56 py-1.5 rounded-md z-50 flex flex-col gap-1 border shadow-2xl"
+                style={{
+                  background: '#1e2229',
+                  borderColor: 'rgba(255,255,255,0.08)',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+                }}
+                onMouseLeave={() => setShowMembersDropdown(false)}
+              >
+                <div className="px-3 py-1 text-[9px] font-semibold text-[#8b949e] border-b" style={{ borderColor: 'rgba(255,255,255,0.08)', letterSpacing: '0.05em' }}>
+                  ACTIVE MEMBERS
+                </div>
+                <div className="max-h-40 overflow-y-auto flex flex-col">
+                  {members.map(m => {
+                    const isSelf = m.id === memberIdRef.current
+                    return (
+                      <div key={m.id} className="flex items-center justify-between px-3 py-1.5 text-[11px] hover:bg-[rgba(255,255,255,0.02)]">
+                        <div className="flex items-center gap-1.5 truncate mr-2">
+                          <span className="w-1.5 h-1.5 rounded-full" style={{ background: isSelf ? '#40d972' : '#8b949e' }} />
+                          <span className="truncate" style={{ color: isSelf ? '#e6edf3' : '#8b949e' }}>
+                            {m.name} {isSelf && '(You)'}
+                          </span>
+                        </div>
+                        {!isSelf && isOwner && (
+                          <button
+                            onClick={async () => {
+                              if (confirm(`Kick ${m.name} from this room?`)) {
+                                try {
+                                  const resp = await fetch('/api/kick', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ room: roomId, memberId: m.id })
+                                  })
+                                  if (resp.ok) {
+                                    alert(`${m.name} kicked successfully.`);
+                                    setMembers(prev => prev.filter(x => x.id !== m.id))
+                                  }
+                                } catch (err) {
+                                  console.error(err)
+                                }
+                              }
+                            }}
+                            className="text-[9px] px-1.5 py-0.5 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 cursor-pointer transition-colors"
+                          >
+                            Kick
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
