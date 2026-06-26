@@ -24,11 +24,11 @@ function getDesignState(room: string) {
   return globalAny.designStates[r]
 }
 
-// Initialize MCP server instance once
-if (!globalAny.mcpServer) {
+// ponytail: fresh server+transport per request — McpServer is a Protocol instance,
+// SDK forbids reuse across connections
+function buildServer() {
   const server = new McpServer({ name: 'umg-designer-mcp', version: '1.0.0' })
 
-  // Tool: add_widget
   server.tool(
     'add_widget',
     'Add a widget to the canvas tree layout.',
@@ -47,30 +47,17 @@ if (!globalAny.mcpServer) {
         const addedNode = addWidgetToState(state, type, name, properties, style, slot, parentId)
         state.version += 1
         state.updatedAt = Date.now()
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Added ${type} widget "${name}" (ID: ${addedNode.id}) to layout.`,
-            },
-          ],
-        }
+        return { content: [{ type: 'text', text: `Added ${type} widget "${name}" (ID: ${addedNode.id}) to layout.` }] }
       } catch (err) {
-        return {
-          isError: true,
-          content: [{ type: 'text', text: `Failed to add widget: ${(err as Error).message}` }],
-        }
+        return { isError: true, content: [{ type: 'text', text: `Failed to add widget: ${(err as Error).message}` }] }
       }
     }
   )
 
-  // Tool: list_widgets
   server.tool(
     'list_widgets',
     'List all widgets currently on the canvas design.',
-    {
-      room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".'),
-    },
+    { room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".') },
     async ({ room = 'default' }) => {
       const state = getDesignState(room)
       const widgets = listWidgetsInTree(state.tree)
@@ -79,13 +66,10 @@ if (!globalAny.mcpServer) {
     }
   )
 
-  // Tool: clear_canvas
   server.tool(
     'clear_canvas',
     'Clear all widgets and reset the canvas design layout.',
-    {
-      room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".'),
-    },
+    { room: z.string().optional().describe('Optional room/workspace ID. Defaults to "default".') },
     async ({ room = 'default' }) => {
       const state = getDesignState(room)
       state.tree = null
@@ -95,7 +79,6 @@ if (!globalAny.mcpServer) {
     }
   )
 
-  // Tool: export_design
   server.tool(
     'export_design',
     'Export current design state in .umgbridge.json schema format.',
@@ -109,29 +92,12 @@ if (!globalAny.mcpServer) {
       state.widgetName = widgetName
       state.version += 1
       state.updatedAt = Date.now()
-
-      const output = {
-        version: '1.0',
-        name: widgetName,
-        canvas: {
-          width: state.canvas.w,
-          height: state.canvas.h,
-        },
-        tree: state.tree,
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(output, null, 2),
-          },
-        ],
-      }
+      const output = { version: '1.0', name: widgetName, canvas: { width: state.canvas.w, height: state.canvas.h }, tree: state.tree }
+      return { content: [{ type: 'text', text: JSON.stringify(output, null, 2) }] }
     }
   )
 
-  globalAny.mcpServer = server
+  return server
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -143,9 +109,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).end()
   }
 
-  // ponytail: fresh transport per request — SDK requires this for stateless mode
+  const server = buildServer()
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-  await globalAny.mcpServer.connect(transport)
+  await server.connect(transport)
 
   try {
     await transport.handleRequest(req, res, req.body)
